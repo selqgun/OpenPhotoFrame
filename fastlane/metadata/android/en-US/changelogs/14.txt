@@ -1,0 +1,8 @@
+New features:
+• Nextcloud folder selection now shows how many photos each folder has and how many are already synced
+• Per-folder progress while syncing
+
+Improvements:
+• Folder selection works offline using the last known folders
+• Clearer Nextcloud error messages
+• Stalled downloads now time out instead of hanging

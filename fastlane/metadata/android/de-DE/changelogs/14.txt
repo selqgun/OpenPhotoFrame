@@ -1,0 +1,8 @@
+Neue Funktionen:
+• Die Nextcloud-Ordnerauswahl zeigt jetzt, wie viele Fotos jeder Ordner enthält und wie viele bereits synchronisiert sind
+• Fortschrittsanzeige pro Ordner während der Synchronisation
+
+Verbesserungen:
+• Die Ordnerauswahl funktioniert jetzt offline anhand der zuletzt bekannten Ordner
+• Klarere Nextcloud-Fehlermeldungen
+• Hängende Downloads brechen jetzt nach einem Timeout ab statt stehenzubleiben
