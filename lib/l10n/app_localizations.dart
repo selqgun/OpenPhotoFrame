@@ -446,6 +446,12 @@ abstract class AppLocalizations {
   /// **'Images directly in the shared root folder'**
   String get nextcloudShareRootSubtitle;
 
+  /// No description provided for @nextcloudFolderPhotoCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 photo} other{{count} photos}}'**
+  String nextcloudFolderPhotoCount(int count);
+
   /// No description provided for @nextcloudFoldersLoadError.
   ///
   /// In en, this message translates to:
@@ -494,11 +500,77 @@ abstract class AppLocalizations {
   /// **'Sync completed successfully!'**
   String get syncCompletedSuccessfully;
 
+  /// No description provided for @syncCancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync cancelled.'**
+  String get syncCancelled;
+
   /// No description provided for @syncError.
   ///
   /// In en, this message translates to:
   /// **'Error: {error}'**
   String syncError(String error);
+
+  /// No description provided for @nextcloudErrorInvalidShareLink.
+  ///
+  /// In en, this message translates to:
+  /// **'The Nextcloud share link is no longer valid.'**
+  String get nextcloudErrorInvalidShareLink;
+
+  /// No description provided for @nextcloudErrorShareInaccessible.
+  ///
+  /// In en, this message translates to:
+  /// **'The Nextcloud share is no longer accessible.'**
+  String get nextcloudErrorShareInaccessible;
+
+  /// No description provided for @nextcloudErrorConnectionTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection to Nextcloud timed out.'**
+  String get nextcloudErrorConnectionTimeout;
+
+  /// No description provided for @nextcloudErrorConnectionFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not connect to Nextcloud. Check internet connection and share link.'**
+  String get nextcloudErrorConnectionFailed;
+
+  /// No description provided for @nextcloudErrorDownloadStalled.
+  ///
+  /// In en, this message translates to:
+  /// **'Download timed out after 15 minutes without receiving data.'**
+  String get nextcloudErrorDownloadStalled;
+
+  /// No description provided for @nextcloudErrorInvalidUrlEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'URL is empty.'**
+  String get nextcloudErrorInvalidUrlEmpty;
+
+  /// No description provided for @nextcloudErrorInvalidUrlScheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid URL scheme. Use http or https.'**
+  String get nextcloudErrorInvalidUrlScheme;
+
+  /// No description provided for @nextcloudErrorInvalidUrlNoHost.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid URL. Host is missing.'**
+  String get nextcloudErrorInvalidUrlNoHost;
+
+  /// No description provided for @nextcloudErrorInvalidUrlFormat.
+  ///
+  /// In en, this message translates to:
+  /// **'Invalid URL format: {error}'**
+  String nextcloudErrorInvalidUrlFormat(String error);
+
+  /// No description provided for @nextcloudErrorUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'Nextcloud sync failed: {error}'**
+  String nextcloudErrorUnknown(String error);
 
   /// No description provided for @neverSynced.
   ///

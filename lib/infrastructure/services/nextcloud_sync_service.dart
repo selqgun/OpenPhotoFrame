@@ -1,18 +1,86 @@
+import 'dart:async';
 import 'dart:io';
+
+import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
 import '../../domain/interfaces/sync_provider.dart';
 import '../../domain/interfaces/storage_provider.dart';
 import 'nextcloud_remote_client.dart';
 import 'nextcloud_source_config.dart';
 
+class NextcloudSyncException implements Exception {
+  const NextcloudSyncException(
+    this.code, {
+    this.statusCode,
+    this.cause,
+    this.details,
+  });
+
+  final NextcloudSyncErrorCode code;
+  final int? statusCode;
+  final Object? cause;
+  final String? details;
+
+  @override
+  String toString() => switch (code) {
+    NextcloudSyncErrorCode.invalidShareLink =>
+      'The Nextcloud share link is no longer valid.',
+    NextcloudSyncErrorCode.shareInaccessible =>
+      'The Nextcloud share is no longer accessible.',
+    NextcloudSyncErrorCode.connectionTimeout =>
+      'Connection to Nextcloud timed out.',
+    NextcloudSyncErrorCode.connectionFailed =>
+      'Could not connect to Nextcloud. Check internet connection and share link.',
+    NextcloudSyncErrorCode.downloadStalled =>
+      'Download timed out after 15 minutes without receiving data.',
+    NextcloudSyncErrorCode.invalidUrlEmpty => 'URL is empty.',
+    NextcloudSyncErrorCode.invalidUrlScheme =>
+      'Invalid URL scheme. Use http or https.',
+    NextcloudSyncErrorCode.invalidUrlNoHost =>
+      'Invalid URL. Host is missing.',
+    NextcloudSyncErrorCode.invalidUrlFormat =>
+      'Invalid URL format: ${details ?? cause}',
+    NextcloudSyncErrorCode.unknown =>
+      'Nextcloud sync failed: ${details ?? cause}',
+  };
+}
+
+enum NextcloudSyncErrorCode {
+  invalidShareLink,
+  shareInaccessible,
+  connectionTimeout,
+  connectionFailed,
+  downloadStalled,
+  invalidUrlEmpty,
+  invalidUrlScheme,
+  invalidUrlNoHost,
+  invalidUrlFormat,
+  unknown,
+}
+
 class NextcloudFolder {
   const NextcloudFolder({
     required this.path,
     required this.depth,
+    this.fileCount = 0,
   });
+
+  /// Rebuilds a folder from a (relative) path, deriving the tree depth.
+  /// Used to restore the cached folder tree without a server connection.
+  factory NextcloudFolder.fromPath(String path, {int fileCount = 0}) {
+    final normalized = NextcloudSourceConfig.normalizeFolderPath(path);
+    return NextcloudFolder(
+      path: normalized,
+      depth: normalized.isEmpty ? 0 : normalized.split('/').length,
+      fileCount: fileCount,
+    );
+  }
 
   final String path;
   final int depth;
+
+  /// Number of image files directly in this folder (excludes subfolders).
+  final int fileCount;
 
   String get name {
     if (path.isEmpty) {
@@ -27,6 +95,8 @@ class NextcloudFolder {
 }
 
 class NextcloudSyncService implements SyncProvider {
+  static const Duration _downloadIdleTimeout = Duration(minutes: 15);
+
   final String webDavUrl;
   final String user;
   final String password;
@@ -73,27 +143,149 @@ class NextcloudSyncService implements SyncProvider {
   @override
   String get id => 'nextcloud_public';
 
+  static String describeError(Object error) {
+    if (error is NextcloudSyncException) {
+      return error.toString();
+    }
+
+    if (error is TimeoutException) {
+      return const NextcloudSyncException(
+        NextcloudSyncErrorCode.downloadStalled,
+      ).toString();
+    }
+
+    if (error is SocketException) {
+      return const NextcloudSyncException(
+        NextcloudSyncErrorCode.connectionFailed,
+      ).toString();
+    }
+
+    if (error is DioException) {
+      final statusCode = error.response?.statusCode;
+      if (statusCode == 401 || statusCode == 404) {
+        return const NextcloudSyncException(
+          NextcloudSyncErrorCode.invalidShareLink,
+        ).toString();
+      }
+      if (statusCode == 403) {
+        return const NextcloudSyncException(
+          NextcloudSyncErrorCode.shareInaccessible,
+        ).toString();
+      }
+
+      if (error.type == DioExceptionType.connectionTimeout) {
+        return const NextcloudSyncException(
+          NextcloudSyncErrorCode.connectionTimeout,
+        ).toString();
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        return const NextcloudSyncException(
+          NextcloudSyncErrorCode.connectionFailed,
+        ).toString();
+      }
+      if (error.type == DioExceptionType.receiveTimeout) {
+        return const NextcloudSyncException(
+          NextcloudSyncErrorCode.downloadStalled,
+        ).toString();
+      }
+    }
+
+    return NextcloudSyncException(
+      NextcloudSyncErrorCode.unknown,
+      cause: error,
+      details: error.toString(),
+    ).toString();
+  }
+
+  static NextcloudSyncException normalizeError(Object error) {
+    if (error is NextcloudSyncException) {
+      return error;
+    }
+
+    final statusCode = error is DioException ? error.response?.statusCode : null;
+    if (error is TimeoutException) {
+      return NextcloudSyncException(
+        NextcloudSyncErrorCode.downloadStalled,
+        statusCode: statusCode,
+        cause: error,
+      );
+    }
+
+    if (error is SocketException) {
+      return NextcloudSyncException(
+        NextcloudSyncErrorCode.connectionFailed,
+        statusCode: statusCode,
+        cause: error,
+      );
+    }
+
+    if (error is DioException) {
+      if (statusCode == 401 || statusCode == 404) {
+        return NextcloudSyncException(
+          NextcloudSyncErrorCode.invalidShareLink,
+          statusCode: statusCode,
+          cause: error,
+        );
+      }
+      if (statusCode == 403) {
+        return NextcloudSyncException(
+          NextcloudSyncErrorCode.shareInaccessible,
+          statusCode: statusCode,
+          cause: error,
+        );
+      }
+      if (error.type == DioExceptionType.connectionTimeout) {
+        return NextcloudSyncException(
+          NextcloudSyncErrorCode.connectionTimeout,
+          statusCode: statusCode,
+          cause: error,
+        );
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        return NextcloudSyncException(
+          NextcloudSyncErrorCode.connectionFailed,
+          statusCode: statusCode,
+          cause: error,
+        );
+      }
+      if (error.type == DioExceptionType.receiveTimeout) {
+        return NextcloudSyncException(
+          NextcloudSyncErrorCode.downloadStalled,
+          statusCode: statusCode,
+          cause: error,
+        );
+      }
+    }
+
+    return NextcloudSyncException(
+      NextcloudSyncErrorCode.unknown,
+      statusCode: statusCode,
+      cause: error,
+      details: error.toString(),
+    );
+  }
+
   /// Tests the connection to the WebDAV server.
   /// Returns null on success, or an error message on failure.
-  static Future<String?> testConnection(
+  static Future<NextcloudSyncException?> testConnection(
     String publicLink, {
     NextcloudRemoteClientFactory clientFactory = createWebDavNextcloudRemoteClient,
   }) async {
     final log = Logger('NextcloudSyncService');
     
     if (publicLink.isEmpty) {
-      return 'URL is empty';
+      return const NextcloudSyncException(NextcloudSyncErrorCode.invalidUrlEmpty);
     }
     
     try {
       final uri = Uri.parse(publicLink);
       
       if (uri.scheme != 'http' && uri.scheme != 'https') {
-        return 'Invalid URL scheme (must be http or https)';
+        return const NextcloudSyncException(NextcloudSyncErrorCode.invalidUrlScheme);
       }
       
       if (uri.host.isEmpty) {
-        return 'Invalid URL (no host)';
+        return const NextcloudSyncException(NextcloudSyncErrorCode.invalidUrlNoHost);
       }
       final share = NextcloudPublicShare.fromPublicLink(publicLink);
       
@@ -112,19 +304,15 @@ class NextcloudSyncService implements SyncProvider {
       return null; // Success
       
     } on FormatException catch (e) {
-      return 'Invalid URL format: ${e.message}';
-    } catch (e) {
-      log.warning("Connection test failed: $e");
-      // Extract meaningful error message
-      final errorStr = e.toString();
-      if (errorStr.contains('401')) {
-        return 'Authentication failed (invalid share link?)';
-      } else if (errorStr.contains('404')) {
-        return 'Share not found (invalid link?)';
-      } else if (errorStr.contains('SocketException')) {
-        return 'Could not connect (check internet/URL)';
-      }
-      return 'Connection failed: $e';
+      return NextcloudSyncException(
+        NextcloudSyncErrorCode.invalidUrlFormat,
+        cause: e,
+        details: e.message,
+      );
+    } catch (e, stackTrace) {
+      final normalizedError = normalizeError(e);
+      log.warning("Connection test failed", normalizedError, stackTrace);
+      return normalizedError;
     }
   }
 
@@ -132,27 +320,31 @@ class NextcloudSyncService implements SyncProvider {
     String publicLink, {
     NextcloudRemoteClientFactory clientFactory = createWebDavNextcloudRemoteClient,
   }) async {
-    final share = NextcloudPublicShare.fromPublicLink(publicLink);
-    final client = clientFactory(
-      webDavUrl: share.webDavUrl,
-      user: share.user,
-      password: share.password,
-    );
+    try {
+      final share = NextcloudPublicShare.fromPublicLink(publicLink);
+      final client = clientFactory(
+        webDavUrl: share.webDavUrl,
+        user: share.user,
+        password: share.password,
+      );
 
-    final folders = <NextcloudFolder>[const NextcloudFolder(path: '', depth: 0)];
-    folders.addAll(
-      await _collectRemoteFolders(
+      final folders = await _collectRemoteFolders(
         client,
         remoteDirectoryPath: '/',
         relativeDirectoryPath: '',
-      ),
-    );
-    folders.sort((left, right) => left.path.compareTo(right.path));
-    return folders;
+      );
+      folders.sort((left, right) => left.path.compareTo(right.path));
+      return folders;
+    } catch (e) {
+      throw normalizeError(e);
+    }
   }
 
   @override
-  Future<void> sync({bool deleteOrphanedFiles = false}) async {
+  Future<void> sync({
+    bool deleteOrphanedFiles = false,
+    SyncProgressCallback? onProgress,
+  }) async {
     _log.info("Starting Sync from $webDavUrl (deleteOrphaned: $deleteOrphanedFiles)");
 
     final client = _clientFactory(
@@ -181,6 +373,41 @@ class NextcloudSyncService implements SyncProvider {
         }
       }
 
+      // Group pending downloads by their (selected) folder so we can report a
+      // per-folder x/y breakdown. Order follows the sorted download order.
+      final folderOrder = <String>[];
+      final folderTotals = <String, int>{};
+      for (final remoteFile in pendingDownloads) {
+        final folder = NextcloudSourceConfig.parentDirectoryOf(
+          remoteFile.relativePath,
+        );
+        if (!folderTotals.containsKey(folder)) {
+          folderOrder.add(folder);
+        }
+        folderTotals[folder] = (folderTotals[folder] ?? 0) + 1;
+      }
+      final folderCompleted = {for (final folder in folderOrder) folder: 0};
+
+      List<SyncFolderProgress> folderSnapshot() => [
+        for (final folder in folderOrder)
+          SyncFolderProgress(
+            folderPath: folder,
+            completedFiles: folderCompleted[folder]!,
+            totalFiles: folderTotals[folder]!,
+          ),
+      ];
+
+      if (pendingDownloads.isNotEmpty) {
+        onProgress?.call(
+          SyncProgress(
+            completedFiles: 0,
+            totalFiles: pendingDownloads.length,
+            currentFileLabel: pendingDownloads.first.relativePath,
+            folders: folderSnapshot(),
+          ),
+        );
+      }
+
       final remoteRelativePaths = remoteFiles
           .map((remoteFile) => remoteFile.relativePath)
           .toSet();
@@ -188,6 +415,18 @@ class NextcloudSyncService implements SyncProvider {
       for (var index = 0; index < pendingDownloads.length; index++) {
         final remoteFile = pendingDownloads[index];
         final localFile = File('${localDir.path}/${remoteFile.relativePath}');
+        final folder = NextcloudSourceConfig.parentDirectoryOf(
+          remoteFile.relativePath,
+        );
+
+        onProgress?.call(
+          SyncProgress(
+            completedFiles: index,
+            totalFiles: pendingDownloads.length,
+            currentFileLabel: remoteFile.relativePath,
+            folders: folderSnapshot(),
+          ),
+        );
 
         _log.info(
           'Downloading ${index + 1}/${pendingDownloads.length}...',
@@ -196,7 +435,11 @@ class NextcloudSyncService implements SyncProvider {
         await localFile.parent.create(recursive: true);
         final partFile = File('${localFile.path}.part');
         await partFile.parent.create(recursive: true);
-        await client.downloadFile(remoteFile.remotePath, partFile.path);
+        await client.downloadFile(
+          remoteFile.remotePath,
+          partFile.path,
+          idleTimeout: _downloadIdleTimeout,
+        );
 
         if (remoteFile.modifiedAt != null) {
           try {
@@ -209,6 +452,16 @@ class NextcloudSyncService implements SyncProvider {
         }
 
         await partFile.rename(localFile.path);
+        folderCompleted[folder] = (folderCompleted[folder] ?? 0) + 1;
+
+        onProgress?.call(
+          SyncProgress(
+            completedFiles: index + 1,
+            totalFiles: pendingDownloads.length,
+            currentFileLabel: remoteFile.relativePath,
+            folders: folderSnapshot(),
+          ),
+        );
       }
       
       if (deleteOrphanedFiles) {
@@ -220,13 +473,14 @@ class NextcloudSyncService implements SyncProvider {
       
       _log.info("Sync completed.");
 
-    } catch (e) {
-      _log.severe("Sync failed", e);
-      rethrow;
+    } catch (e, stackTrace) {
+      final normalizedError = normalizeError(e);
+      _log.severe("Sync failed", normalizedError, stackTrace);
+      throw normalizedError;
     }
   }
 
-  bool _isImage(String name) {
+  static bool _isImage(String name) {
     final lower = name.toLowerCase();
     return lower.endsWith('.jpg') || 
            lower.endsWith('.jpeg') || 
@@ -309,31 +563,40 @@ class NextcloudSyncService implements SyncProvider {
     }
   }
 
+  /// Lists the folder named by [relativeDirectoryPath] and all its descendants,
+  /// counting the image files directly contained in each. The PROPFIND response
+  /// already carries the file entries, so the counts come for free (no extra
+  /// requests beyond the directory listing we do anyway).
   static Future<List<NextcloudFolder>> _collectRemoteFolders(
     NextcloudRemoteClient client, {
     required String remoteDirectoryPath,
     required String relativeDirectoryPath,
   }) async {
     final entries = await client.readDir(remoteDirectoryPath);
-    final folders = <NextcloudFolder>[];
 
+    var imageCount = 0;
+    final subDirectories = <NextcloudRemoteEntry>[];
     for (final entry in entries) {
-      if (!entry.isDirectory) {
-        continue;
+      if (entry.isDirectory) {
+        subDirectories.add(entry);
+      } else if (_isImage(entry.name)) {
+        imageCount++;
       }
+    }
 
-      final folderPath = _joinRelativePath(relativeDirectoryPath, entry.name);
-      folders.add(
-        NextcloudFolder(
-          path: folderPath,
-          depth: folderPath.isEmpty ? 0 : folderPath.split('/').length,
-        ),
-      );
+    final folders = <NextcloudFolder>[
+      NextcloudFolder.fromPath(relativeDirectoryPath, fileCount: imageCount),
+    ];
+
+    for (final entry in subDirectories) {
       folders.addAll(
         await _collectRemoteFolders(
           client,
           remoteDirectoryPath: entry.path,
-          relativeDirectoryPath: folderPath,
+          relativeDirectoryPath: _joinRelativePath(
+            relativeDirectoryPath,
+            entry.name,
+          ),
         ),
       );
     }

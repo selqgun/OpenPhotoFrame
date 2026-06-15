@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 
 import '../../domain/interfaces/config_provider.dart';
@@ -11,7 +12,28 @@ import '../../domain/models/photo_entry.dart';
 /// Factory function type that creates a SyncProvider from current config
 typedef SyncProviderFactory = SyncProvider Function();
 
-class PhotoService {
+enum SyncStatusKind {
+  success,
+  cancelled,
+  error,
+}
+
+class SyncStatus {
+  const SyncStatus.success()
+    : kind = SyncStatusKind.success,
+      error = null;
+
+  const SyncStatus.cancelled()
+    : kind = SyncStatusKind.cancelled,
+      error = null;
+
+  const SyncStatus.error(this.error) : kind = SyncStatusKind.error;
+
+  final SyncStatusKind kind;
+  final Object? error;
+}
+
+class PhotoService extends ChangeNotifier {
   final SyncProviderFactory _syncProviderFactory;
   final PlaylistStrategy _playlistStrategy;
   final PhotoRepository _repository;
@@ -26,6 +48,8 @@ class PhotoService {
   bool _isSyncing = false;
   bool _cancelRequested = false;
   Completer<void>? _currentSyncCompleter;
+  SyncProgress? _syncProgress;
+  SyncStatus? _syncStatus;
   
   // History management
   final List<PhotoEntry> _history = [];
@@ -50,6 +74,8 @@ class PhotoService {
   
   /// Returns true if a sync is currently in progress
   bool get isSyncing => _isSyncing;
+  SyncProgress? get syncProgress => _syncProgress;
+  SyncStatus? get syncStatus => _syncStatus;
 
   Future<void> initialize() async {
     if (_isInitialized) return;
@@ -67,6 +93,45 @@ class PhotoService {
     _startBackgroundSync();
     
     _isInitialized = true;
+  }
+
+  void _updateSyncState({
+    bool? isSyncing,
+    SyncProgress? progress,
+    bool clearProgress = false,
+    SyncStatus? status,
+    bool clearStatus = false,
+  }) {
+    var changed = false;
+
+    if (isSyncing != null && _isSyncing != isSyncing) {
+      _isSyncing = isSyncing;
+      changed = true;
+    }
+
+    if (clearProgress) {
+      if (_syncProgress != null) {
+        _syncProgress = null;
+        changed = true;
+      }
+    } else if (progress != null) {
+      _syncProgress = progress;
+      changed = true;
+    }
+
+    if (clearStatus) {
+      if (_syncStatus != null) {
+        _syncStatus = null;
+        changed = true;
+      }
+    } else if (status != null && _syncStatus != status) {
+      _syncStatus = status;
+      changed = true;
+    }
+
+    if (changed) {
+      notifyListeners();
+    }
   }
   
   /// Called when the photo directory changes (e.g., user selected different folder)
@@ -92,31 +157,36 @@ class PhotoService {
   void _startBackgroundSync() {
     if (_syncLoopRunning) return;
     _syncLoopRunning = true;
-    
-    Future.doWhile(() async {
+
+    unawaited(() async {
+      while (_syncLoopRunning) {
       // Read current config values (they might change via settings)
-      final intervalMinutes = _configProvider.syncIntervalMinutes;
-      
-      // If interval is 0, sync is disabled
-      if (intervalMinutes <= 0) {
-        _log.info("Auto-sync is disabled. Checking again in 1 minute...");
-        await Future.delayed(const Duration(minutes: 1));
-        return true;
-      }
-      
-      // Skip if a sync is already running (e.g., manual sync from settings)
-      if (_isSyncing) {
-        _log.info("Sync already in progress, skipping scheduled sync");
+        final intervalMinutes = _configProvider.syncIntervalMinutes;
+
+        // If interval is 0, sync is disabled
+        if (intervalMinutes <= 0) {
+          _log.info("Auto-sync is disabled. Checking again in 1 minute...");
+          await Future.delayed(const Duration(minutes: 1));
+          continue;
+        }
+
+        // Skip if a sync is already running (e.g., manual sync from settings)
+        if (_isSyncing) {
+          _log.info("Sync already in progress, skipping scheduled sync");
+          await Future.delayed(Duration(minutes: intervalMinutes));
+          continue;
+        }
+
+        try {
+          await _executeSync();
+        } catch (e, stackTrace) {
+          _log.warning("Scheduled sync failed, will retry on next interval", e, stackTrace);
+        }
+
+        // Wait for configured interval before next sync
         await Future.delayed(Duration(minutes: intervalMinutes));
-        return true;
       }
-      
-      await _executeSync();
-      
-      // Wait for configured interval before next sync
-      await Future.delayed(Duration(minutes: intervalMinutes));
-      return true;
-    });
+    }());
   }
   
   /// Triggers a manual sync. If a sync is already running, it will be cancelled first.
@@ -149,9 +219,13 @@ class PhotoService {
     
     if (_isSyncing) return; // Double-check
     
-    _isSyncing = true;
     _cancelRequested = false;
     _currentSyncCompleter = Completer<void>();
+    _updateSyncState(
+      isSyncing: true,
+      clearProgress: true,
+      clearStatus: true,
+    );
     
     final deleteOrphaned = _configProvider.deleteOrphanedFiles;
     
@@ -159,26 +233,34 @@ class PhotoService {
       // Create a fresh SyncProvider with current config settings
       final syncProvider = _syncProviderFactory();
       _log.info("Starting sync (delete orphaned: $deleteOrphaned)");
-      await syncProvider.sync(deleteOrphanedFiles: deleteOrphaned);
+      await syncProvider.sync(
+        deleteOrphanedFiles: deleteOrphaned,
+        onProgress: (progress) {
+          _updateSyncState(progress: progress);
+        },
+      );
       
       // Save timestamp of successful sync
       _configProvider.lastSuccessfulSync = DateTime.now();
       await _configProvider.save();
       
       _log.info("Sync completed successfully");
+      _updateSyncState(status: const SyncStatus.success());
       // Repository watcher will pick up changes automatically
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (_cancelRequested) {
         _log.info("Sync was cancelled");
+        _updateSyncState(status: const SyncStatus.cancelled());
       } else {
-        _log.warning("Sync failed", e);
+        _log.warning("Sync failed", e, stackTrace);
+        _updateSyncState(status: SyncStatus.error(e));
         rethrow;
       }
     } finally {
-      _isSyncing = false;
       _cancelRequested = false;
       _currentSyncCompleter?.complete();
       _currentSyncCompleter = null;
+      _updateSyncState(isSyncing: false, clearProgress: true);
     }
   }
 
@@ -221,8 +303,11 @@ class PhotoService {
     return _repository.photos.any((p) => p.file.path == photo.file.path);
   }
   
+  @override
   void dispose() {
+    _syncLoopRunning = false;
     _directoryChangeSubscription?.cancel();
     _repository.dispose();
+    super.dispose();
   }
 }

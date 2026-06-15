@@ -78,6 +78,14 @@
   "nextcloudFolderSelectionHint": "Select the share root and any subfolders you want to include.",
   "nextcloudShareRoot": "Share root",
   "nextcloudShareRootSubtitle": "Images directly in the shared root folder",
+  "nextcloudFolderPhotoCount": "{count, plural, =1{1 photo} other{{count} photos}}",
+  "@nextcloudFolderPhotoCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "nextcloudFoldersLoadError": "Error loading folders: {error}",
   "@nextcloudFoldersLoadError": {
     "placeholders": {
@@ -94,8 +102,33 @@
   "syncNow": "Sync Now",
   "syncing": "Syncing...",
   "syncCompletedSuccessfully": "Sync completed successfully!",
+  "syncCancelled": "Sync cancelled.",
   "syncError": "Error: {error}",
   "@syncError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "nextcloudErrorInvalidShareLink": "The Nextcloud share link is no longer valid.",
+  "nextcloudErrorShareInaccessible": "The Nextcloud share is no longer accessible.",
+  "nextcloudErrorConnectionTimeout": "Connection to Nextcloud timed out.",
+  "nextcloudErrorConnectionFailed": "Could not connect to Nextcloud. Check internet connection and share link.",
+  "nextcloudErrorDownloadStalled": "Download timed out after 15 minutes without receiving data.",
+  "nextcloudErrorInvalidUrlEmpty": "URL is empty.",
+  "nextcloudErrorInvalidUrlScheme": "Invalid URL scheme. Use http or https.",
+  "nextcloudErrorInvalidUrlNoHost": "Invalid URL. Host is missing.",
+  "nextcloudErrorInvalidUrlFormat": "Invalid URL format: {error}",
+  "@nextcloudErrorInvalidUrlFormat": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "nextcloudErrorUnknown": "Nextcloud sync failed: {error}",
+  "@nextcloudErrorUnknown": {
     "placeholders": {
       "error": {
         "type": "String"

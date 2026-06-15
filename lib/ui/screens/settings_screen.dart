@@ -9,6 +9,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:photo_manager/photo_manager.dart';
 import '../../domain/interfaces/config_provider.dart';
 import '../../domain/interfaces/photo_repository.dart';
+import '../../domain/interfaces/storage_provider.dart';
+import '../../domain/interfaces/sync_provider.dart';
 import '../../infrastructure/repositories/hybrid_photo_repository.dart';
 import '../../infrastructure/services/photo_service.dart';
 import '../../infrastructure/services/nextcloud_source_config.dart';
@@ -72,10 +74,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   
   // Screen orientation setting
   late String _screenOrientation;
-  
-  bool _isSyncing = false;
-  String? _syncStatus;
-  
+
   bool _isTestingConnection = false;
   String? _connectionTestResult;
   bool? _connectionTestSuccess;
@@ -83,6 +82,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late NextcloudFolderSyncMode _nextcloudFolderSyncMode;
   late Set<String> _selectedNextcloudFolders;
   List<NextcloudFolder> _availableNextcloudFolders = [];
+  // Number of locally synced images per folder path (relative). Used to show
+  // "synced / total" in the picker.
+  Map<String, int> _localFolderImageCounts = const {};
   bool _isLoadingNextcloudFolders = false;
   String? _nextcloudFolderLoadError;
   
@@ -167,6 +169,25 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
     _nextcloudFolderSyncMode = nextcloudConfig.folderSyncMode;
     _selectedNextcloudFolders = {...nextcloudConfig.normalizedSelectedFolders};
+    // Restore the cached folder tree so the picker renders offline (no connection).
+    // Fall back to the already-selected folders for configs saved before the
+    // cache existed, so previously subscribed folders still show up offline.
+    final cachedFileCounts = <String, int>{
+      for (final folder in nextcloudConfig.cachedFolders)
+        NextcloudSourceConfig.normalizeFolderPath(folder.path): folder.fileCount,
+    };
+    final knownFolderPaths = <String>{
+      ...cachedFileCounts.keys,
+      ..._selectedNextcloudFolders,
+    };
+    _availableNextcloudFolders = (knownFolderPaths.toList()..sort())
+        .map(
+          (path) => NextcloudFolder.fromPath(
+            path,
+            fileCount: cachedFileCounts[path] ?? 0,
+          ),
+        )
+        .toList(growable: false);
     
     // Store original values for comparison on save
     _originalSyncType = _syncType;
@@ -188,6 +209,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         nextcloudConfig.url.isNotEmpty &&
         _nextcloudFolderSyncMode == NextcloudFolderSyncMode.selectedFolders) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        _refreshLocalFolderImageCounts();
         _loadAvailableNextcloudFolders();
       });
     }
@@ -1142,6 +1164,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                   subtitle: folder.path.isEmpty
                       ? Text(localizations.nextcloudShareRootSubtitle)
                       : null,
+                  secondary: _buildFolderSyncBadge(folder),
                   onChanged: (value) {
                     setState(() {
                       if (value ?? false) {
@@ -1175,7 +1198,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       setState(() {
         _isTestingConnection = false;
         _connectionTestSuccess = error == null;
-        _connectionTestResult = error ?? AppLocalizations.of(context)!.connectionSuccessful;
+        _connectionTestResult = error == null
+            ? AppLocalizations.of(context)!.connectionSuccessful
+            : _localizeNextcloudError(error);
       });
     }
   }
@@ -1184,7 +1209,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     final publicLink = _nextcloudUrlController.text.trim();
     if (publicLink.isEmpty) {
       setState(() {
-        _nextcloudFolderLoadError = 'URL is empty';
+        _nextcloudFolderLoadError = AppLocalizations.of(context)!.nextcloudErrorInvalidUrlEmpty;
         _availableNextcloudFolders = [];
       });
       return;
@@ -1215,8 +1240,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       }
 
       setState(() {
-        _nextcloudFolderLoadError = e.toString();
-        _availableNextcloudFolders = [];
+        _nextcloudFolderLoadError = _localizeNextcloudError(e);
+        // Keep the cached folder tree visible so the picker still works offline.
       });
     } finally {
       if (mounted) {
@@ -1227,11 +1252,89 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     }
   }
 
+  /// Trailing badge for a folder row: "synced / total" with a check mark once
+  /// every image in that folder is present locally.
+  Widget _buildFolderSyncBadge(NextcloudFolder folder) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final total = folder.fileCount;
+    final rawLocal = _localFolderImageCounts[folder.path] ?? 0;
+    final local = total > 0 ? rawLocal.clamp(0, total) : rawLocal;
+    final fullySynced = total > 0 && local >= total;
+    final label = total > 0 ? '$local / $total' : '$rawLocal';
+    final color = fullySynced ? Colors.green : colorScheme.onSurfaceVariant;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          fullySynced ? Icons.check_circle : Icons.cloud_download_outlined,
+          size: 14,
+          color: color,
+        ),
+        const SizedBox(width: 4),
+        Text(label, style: TextStyle(fontSize: 12, color: color)),
+      ],
+    );
+  }
+
+  /// Counts the locally synced images per folder so the picker can show
+  /// "synced / total". Reads the local photo directory (works offline).
+  Future<void> _refreshLocalFolderImageCounts() async {
+    final storage = context.read<StorageProvider>();
+    try {
+      final dir = await storage.getPhotoDirectory();
+      final counts = <String, int>{};
+      if (await dir.exists()) {
+        final prefixLength = dir.path.endsWith('/')
+            ? dir.path.length
+            : dir.path.length + 1;
+        await for (final entity
+            in dir.list(recursive: true, followLinks: false)) {
+          if (entity is! File) {
+            continue;
+          }
+          final name = entity.path.split('/').last;
+          if (name.endsWith('.part') || !_isImageFileName(name)) {
+            continue;
+          }
+          final relativePath = entity.path.length > prefixLength
+              ? entity.path.substring(prefixLength)
+              : '';
+          final folder = NextcloudSourceConfig.parentDirectoryOf(relativePath);
+          counts[folder] = (counts[folder] ?? 0) + 1;
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
+      setState(() => _localFolderImageCounts = counts);
+    } catch (_) {
+      // Local counts are a nice-to-have; ignore failures (e.g. missing dir).
+    }
+  }
+
+  bool _isImageFileName(String name) {
+    final lower = name.toLowerCase();
+    return lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.png') ||
+        lower.endsWith('.webp');
+  }
+
   NextcloudSourceConfig _buildNextcloudSourceConfig({required String url}) {
     return NextcloudSourceConfig(
       url: url,
       folderSyncMode: _nextcloudFolderSyncMode,
       selectedFolders: _selectedNextcloudFolders.toList()..sort(),
+      cachedFolders: _availableNextcloudFolders
+          .map(
+            (folder) => CachedNextcloudFolder(
+              path: folder.path,
+              fileCount: folder.fileCount,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -1299,36 +1402,166 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   Widget _buildSyncNowButton() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Consumer<PhotoService>(
+        builder: (context, photoService, _) {
+          final syncProgress = photoService.syncProgress;
+          final isSyncing = photoService.isSyncing;
+          final progressValue = syncProgress?.fraction;
+          final progressLabel = syncProgress?.counterLabel;
+          final statusText = _localizeSyncStatus(photoService.syncStatus);
+          final statusIsError = photoService.syncStatus?.kind == SyncStatusKind.error;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (isSyncing) ...[
+                _buildSyncProgressIndicator(
+                  progressValue: progressValue,
+                  label: progressLabel ?? AppLocalizations.of(context)!.syncing,
+                ),
+                if (syncProgress != null && syncProgress.folders.length > 1)
+                  _buildSyncFolderBreakdown(syncProgress.folders),
+              ] else
+                ElevatedButton.icon(
+                  onPressed: _triggerSync,
+                  icon: const Icon(Icons.sync),
+                  label: Text(AppLocalizations.of(context)!.syncNow),
+                ),
+              if (statusText != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  statusText,
+                  style: TextStyle(
+                    color: statusIsError ? Colors.red : Colors.green,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSyncProgressIndicator({
+    required double? progressValue,
+    required String label,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return SizedBox(
+      height: 48,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            LinearProgressIndicator(
+              value: progressValue,
+              backgroundColor: colorScheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
+            ),
+            Center(
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: colorScheme.onPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSyncFolderBreakdown(List<SyncFolderProgress> folders) {
+    final l10n = AppLocalizations.of(context)!;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          ElevatedButton.icon(
-            onPressed: _isSyncing ? null : _triggerSync,
-            icon: _isSyncing 
-                ? const SizedBox(
-                    width: 20, 
-                    height: 20, 
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.sync),
-            label: Text(_isSyncing ? AppLocalizations.of(context)!.syncing : AppLocalizations.of(context)!.syncNow),
-          ),
-          if (_syncStatus != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              _syncStatus!,
-              style: TextStyle(
-                color: _syncStatus!.contains('Error') 
-                    ? Colors.red 
-                    : Colors.green,
-                fontSize: 12,
+          for (final folder in folders)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      folder.folderPath.isEmpty
+                          ? l10n.nextcloudShareRoot
+                          : folder.folderPath,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    folder.counterLabel,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: folder.completedFiles >= folder.totalFiles
+                          ? colorScheme.primary
+                          : colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ),
-              textAlign: TextAlign.center,
             ),
-          ],
         ],
       ),
     );
+  }
+
+  String? _localizeSyncStatus(SyncStatus? status) {
+    final l10n = AppLocalizations.of(context)!;
+    if (status == null) {
+      return null;
+    }
+
+    return switch (status.kind) {
+      SyncStatusKind.success => l10n.syncCompletedSuccessfully,
+      SyncStatusKind.cancelled => l10n.syncCancelled,
+      SyncStatusKind.error => l10n.syncError(
+        _localizeNextcloudError(status.error),
+      ),
+    };
+  }
+
+  String _localizeNextcloudError(Object? error) {
+    final l10n = AppLocalizations.of(context)!;
+    if (error is NextcloudSyncException) {
+      return switch (error.code) {
+        NextcloudSyncErrorCode.invalidShareLink =>
+          l10n.nextcloudErrorInvalidShareLink,
+        NextcloudSyncErrorCode.shareInaccessible =>
+          l10n.nextcloudErrorShareInaccessible,
+        NextcloudSyncErrorCode.connectionTimeout =>
+          l10n.nextcloudErrorConnectionTimeout,
+        NextcloudSyncErrorCode.connectionFailed =>
+          l10n.nextcloudErrorConnectionFailed,
+        NextcloudSyncErrorCode.downloadStalled =>
+          l10n.nextcloudErrorDownloadStalled,
+        NextcloudSyncErrorCode.invalidUrlEmpty =>
+          l10n.nextcloudErrorInvalidUrlEmpty,
+        NextcloudSyncErrorCode.invalidUrlScheme =>
+          l10n.nextcloudErrorInvalidUrlScheme,
+        NextcloudSyncErrorCode.invalidUrlNoHost =>
+          l10n.nextcloudErrorInvalidUrlNoHost,
+        NextcloudSyncErrorCode.invalidUrlFormat =>
+          l10n.nextcloudErrorInvalidUrlFormat(error.details ?? ''),
+        NextcloudSyncErrorCode.unknown =>
+          l10n.nextcloudErrorUnknown(error.details ?? error.cause?.toString() ?? ''),
+      };
+    }
+
+    return l10n.nextcloudErrorUnknown(error?.toString() ?? '');
   }
   
   Widget _buildLastSyncInfo() {
@@ -1580,35 +1813,17 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     // First save the current settings
     await _saveSettings();
     
-    setState(() {
-      _isSyncing = true;
-      _syncStatus = null;
-    });
-    
     try {
       final photoService = context.read<PhotoService>();
       
       // Use centralized sync via PhotoService
       // This handles cancellation of running syncs and uses current config
       await photoService.triggerSync();
-      
-      if (mounted) {
-        setState(() {
-          _syncStatus = AppLocalizations.of(context)!.syncCompletedSuccessfully;
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _syncStatus = AppLocalizations.of(context)!.syncError(e.toString());
-        });
-      }
+    } catch (_) {
+      // PhotoService already exposes the sync result for the UI.
     } finally {
-      if (mounted) {
-        setState(() {
-          _isSyncing = false;
-        });
-      }
+      // Refresh the per-folder "synced / total" counts after the sync.
+      await _refreshLocalFolderImageCounts();
     }
   }
   

@@ -78,6 +78,7 @@
   "nextcloudFolderSelectionHint": "Wähle den Freigabe-Root und alle Unterordner aus, die enthalten sein sollen.",
   "nextcloudShareRoot": "Freigabe-Root",
   "nextcloudShareRootSubtitle": "Bilder direkt im freigegebenen Root-Ordner",
+  "nextcloudFolderPhotoCount": "{count, plural, =1{1 Bild} other{{count} Bilder}}",
   "nextcloudFoldersLoadError": "Fehler beim Laden der Ordner: {error}",
   "@nextcloudFoldersLoadError": {
     "placeholders": {
@@ -94,8 +95,33 @@
   "syncNow": "Jetzt synchronisieren",
   "syncing": "Synchronisiere...",
   "syncCompletedSuccessfully": "Synchronisation erfolgreich abgeschlossen!",
+  "syncCancelled": "Synchronisation abgebrochen.",
   "syncError": "Fehler: {error}",
   "@syncError": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "nextcloudErrorInvalidShareLink": "Der Nextcloud-Freigabelink ist nicht mehr gültig.",
+  "nextcloudErrorShareInaccessible": "Die Nextcloud-Freigabe ist nicht mehr erreichbar.",
+  "nextcloudErrorConnectionTimeout": "Die Verbindung zu Nextcloud ist in ein Timeout gelaufen.",
+  "nextcloudErrorConnectionFailed": "Verbindung zu Nextcloud fehlgeschlagen. Bitte Internetverbindung und Freigabelink prüfen.",
+  "nextcloudErrorDownloadStalled": "Der Download wurde nach 15 Minuten ohne Datenempfang abgebrochen.",
+  "nextcloudErrorInvalidUrlEmpty": "URL ist leer.",
+  "nextcloudErrorInvalidUrlScheme": "Ungültiges URL-Schema. Bitte http oder https verwenden.",
+  "nextcloudErrorInvalidUrlNoHost": "Ungültige URL. Host fehlt.",
+  "nextcloudErrorInvalidUrlFormat": "Ungültiges URL-Format: {error}",
+  "@nextcloudErrorInvalidUrlFormat": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "nextcloudErrorUnknown": "Nextcloud-Synchronisation fehlgeschlagen: {error}",
+  "@nextcloudErrorUnknown": {
     "placeholders": {
       "error": {
         "type": "String"

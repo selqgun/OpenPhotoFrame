@@ -195,6 +195,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Images directly in the shared root folder';
 
   @override
+  String nextcloudFolderPhotoCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count photos',
+      one: '1 photo',
+    );
+    return '$_temp0';
+  }
+
+  @override
   String nextcloudFoldersLoadError(String error) {
     return 'Error loading folders: $error';
   }
@@ -222,8 +233,51 @@ class AppLocalizationsEn extends AppLocalizations {
   String get syncCompletedSuccessfully => 'Sync completed successfully!';
 
   @override
+  String get syncCancelled => 'Sync cancelled.';
+
+  @override
   String syncError(String error) {
     return 'Error: $error';
+  }
+
+  @override
+  String get nextcloudErrorInvalidShareLink =>
+      'The Nextcloud share link is no longer valid.';
+
+  @override
+  String get nextcloudErrorShareInaccessible =>
+      'The Nextcloud share is no longer accessible.';
+
+  @override
+  String get nextcloudErrorConnectionTimeout =>
+      'Connection to Nextcloud timed out.';
+
+  @override
+  String get nextcloudErrorConnectionFailed =>
+      'Could not connect to Nextcloud. Check internet connection and share link.';
+
+  @override
+  String get nextcloudErrorDownloadStalled =>
+      'Download timed out after 15 minutes without receiving data.';
+
+  @override
+  String get nextcloudErrorInvalidUrlEmpty => 'URL is empty.';
+
+  @override
+  String get nextcloudErrorInvalidUrlScheme =>
+      'Invalid URL scheme. Use http or https.';
+
+  @override
+  String get nextcloudErrorInvalidUrlNoHost => 'Invalid URL. Host is missing.';
+
+  @override
+  String nextcloudErrorInvalidUrlFormat(String error) {
+    return 'Invalid URL format: $error';
+  }
+
+  @override
+  String nextcloudErrorUnknown(String error) {
+    return 'Nextcloud sync failed: $error';
   }
 
   @override

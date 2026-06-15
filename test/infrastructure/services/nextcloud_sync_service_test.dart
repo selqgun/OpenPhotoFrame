@@ -48,7 +48,12 @@ class FakeNextcloudRemoteClient implements NextcloudRemoteClient {
   }
 
   @override
-  Future<void> downloadFile(String remotePath, String localPath) async {
+  Future<void> downloadFile(
+    String remotePath,
+    String localPath, {
+    void Function(int count, int total)? onProgress,
+    Duration? idleTimeout,
+  }) async {
     downloadedPaths.add(remotePath);
     final file = File(localPath);
     await file.parent.create(recursive: true);

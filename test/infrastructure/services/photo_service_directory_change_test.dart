@@ -222,7 +222,10 @@ class MockSyncProvider implements SyncProvider {
   String get id => 'mock';
   
   @override
-  Future<void> sync({bool deleteOrphanedFiles = false}) async {
+  Future<void> sync({
+    bool deleteOrphanedFiles = false,
+    SyncProgressCallback? onProgress,
+  }) async {
     syncCallCount++;
   }
 }

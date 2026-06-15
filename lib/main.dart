@@ -30,6 +30,12 @@ void main() async {
   Logger.root.level = Level.ALL;
   Logger.root.onRecord.listen((record) {
     print('${record.level.name}: ${record.time}: ${record.message}');
+    if (record.error != null) {
+      print('ERROR: ${record.error}');
+    }
+    if (record.stackTrace != null) {
+      print(record.stackTrace);
+    }
   });
 
   WidgetsFlutterBinding.ensureInitialized();
@@ -95,12 +101,13 @@ class OpenPhotoFrameApp extends StatelessWidget {
         // 2. Application Services (Dependent on Infrastructure)
         // Note: SyncProvider is created dynamically via factory to pick up config changes
         // REUSE existing PhotoService instance
-        ProxyProvider3<StorageProvider, PlaylistStrategy, PhotoRepository, PhotoService>(
-          update: (context, storage, playlist, repo, previous) {
-            if (previous != null) return previous;
-            
+        ChangeNotifierProvider<PhotoService>(
+          create: (context) {
+            final storage = context.read<StorageProvider>();
+            final playlist = context.read<PlaylistStrategy>();
+            final repo = context.read<PhotoRepository>();
             final config = context.read<ConfigProvider>();
-            
+
             // Factory function that creates a SyncProvider with current config
             SyncProvider createSyncProvider() {
               final type = config.activeSourceType;
@@ -117,10 +124,10 @@ class OpenPhotoFrameApp extends StatelessWidget {
                   );
                 }
               }
-              
+
               return NoOpSyncService();
             }
-            
+
             return PhotoService(
               syncProviderFactory: createSyncProvider,
               playlistStrategy: playlist,
@@ -129,7 +136,6 @@ class OpenPhotoFrameApp extends StatelessWidget {
               storageProvider: storage,
             );
           },
-          dispose: (_, service) => service.dispose(),
         ),
       ],
       child: MaterialApp(

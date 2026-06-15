@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:dio/dio.dart';
 import 'package:webdav_client/webdav_client.dart' as webdav;
 
 class NextcloudPublicShare {
@@ -50,7 +53,12 @@ class NextcloudRemoteEntry {
 abstract class NextcloudRemoteClient {
   Future<List<NextcloudRemoteEntry>> readDir(String path);
 
-  Future<void> downloadFile(String remotePath, String localPath);
+  Future<void> downloadFile(
+    String remotePath,
+    String localPath, {
+    void Function(int count, int total)? onProgress,
+    Duration? idleTimeout,
+  });
 }
 
 typedef NextcloudRemoteClientFactory = NextcloudRemoteClient Function({
@@ -72,6 +80,8 @@ NextcloudRemoteClient createWebDavNextcloudRemoteClient({
 }
 
 class WebDavNextcloudRemoteClient implements NextcloudRemoteClient {
+  static const Duration _defaultConnectTimeout = Duration(minutes: 2);
+
   WebDavNextcloudRemoteClient({
     required String webDavUrl,
     required String user,
@@ -87,6 +97,7 @@ class WebDavNextcloudRemoteClient implements NextcloudRemoteClient {
 
   @override
   Future<List<NextcloudRemoteEntry>> readDir(String path) async {
+    _client.setConnectTimeout(_defaultConnectTimeout.inMilliseconds);
     final entries = await _client.readDir(path);
     return entries
         .map(
@@ -102,7 +113,58 @@ class WebDavNextcloudRemoteClient implements NextcloudRemoteClient {
   }
 
   @override
-  Future<void> downloadFile(String remotePath, String localPath) {
-    return _client.read2File(remotePath, localPath);
+  Future<void> downloadFile(
+    String remotePath,
+    String localPath, {
+    void Function(int count, int total)? onProgress,
+    Duration? idleTimeout,
+  }) async {
+    _client.setConnectTimeout(_defaultConnectTimeout.inMilliseconds);
+    _client.setReceiveTimeout(0);
+
+    final cancelToken = CancelToken();
+    Timer? idleTimer;
+
+    void restartIdleTimer() {
+      final timeout = idleTimeout;
+      if (timeout == null) {
+        return;
+      }
+
+      idleTimer?.cancel();
+      idleTimer = Timer(timeout, () {
+        if (!cancelToken.isCancelled) {
+          cancelToken.cancel(
+            'Download stalled for ${timeout.inMinutes} minutes while fetching $remotePath',
+          );
+        }
+      });
+    }
+
+    restartIdleTimer();
+
+    try {
+      await _client.read2File(
+        remotePath,
+        localPath,
+        cancelToken: cancelToken,
+        onProgress: (count, total) {
+          restartIdleTimer();
+          onProgress?.call(count, total);
+        },
+      );
+    } on DioException catch (e) {
+      if (CancelToken.isCancel(e)) {
+        throw TimeoutException(
+          idleTimeout == null
+              ? 'Download was cancelled'
+              : 'Download stalled for more than ${idleTimeout.inMinutes} minutes',
+          idleTimeout,
+        );
+      }
+      rethrow;
+    } finally {
+      idleTimer?.cancel();
+    }
   }
 }
