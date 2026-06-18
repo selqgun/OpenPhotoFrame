@@ -49,10 +49,16 @@ class PhotoSlide extends StatelessWidget {
             color: Colors.black,
           ),
         // 2. Main Image
-        Center(
+        // Positioned.fill gives the Image tight (full-screen) constraints so
+        // BoxFit.contain scales the photo up as well as down. A plain Center
+        // would leave the Image at its intrinsic size, so smaller-than-screen
+        // photos would not be scaled up. The image stays centered via the
+        // default alignment.
+        Positioned.fill(
           child: Image(
             image: imageProvider,
             fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
             gaplessPlayback: true,
           ),
         ),
