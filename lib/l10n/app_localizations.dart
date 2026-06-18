@@ -374,6 +374,42 @@ abstract class AppLocalizations {
   /// **'https://cloud.example.com/s/abc123'**
   String get nextcloudUrlHint;
 
+  /// No description provided for @webdavAuthPublicShare.
+  ///
+  /// In en, this message translates to:
+  /// **'Public share'**
+  String get webdavAuthPublicShare;
+
+  /// No description provided for @webdavAuthLogin.
+  ///
+  /// In en, this message translates to:
+  /// **'WebDAV login'**
+  String get webdavAuthLogin;
+
+  /// No description provided for @webdavUrlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'WebDAV URL'**
+  String get webdavUrlLabel;
+
+  /// No description provided for @webdavUrlHint.
+  ///
+  /// In en, this message translates to:
+  /// **'https://cloud.example.com/remote.php/dav/files/user/'**
+  String get webdavUrlHint;
+
+  /// No description provided for @webdavUsername.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get webdavUsername;
+
+  /// No description provided for @webdavPassword.
+  ///
+  /// In en, this message translates to:
+  /// **'Password'**
+  String get webdavPassword;
+
   /// No description provided for @testConnection.
   ///
   /// In en, this message translates to:

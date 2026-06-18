@@ -34,8 +34,8 @@ class NextcloudPublicShare {
   }
 }
 
-class NextcloudRemoteEntry {
-  const NextcloudRemoteEntry({
+class WebDavRemoteEntry {
+  const WebDavRemoteEntry({
     required this.path,
     required this.name,
     required this.isDirectory,
@@ -50,8 +50,8 @@ class NextcloudRemoteEntry {
   final int? sizeBytes;
 }
 
-abstract class NextcloudRemoteClient {
-  Future<List<NextcloudRemoteEntry>> readDir(String path);
+abstract class WebDavRemoteClient {
+  Future<List<WebDavRemoteEntry>> readDir(String path);
 
   Future<void> downloadFile(
     String remotePath,
@@ -61,28 +61,28 @@ abstract class NextcloudRemoteClient {
   });
 }
 
-typedef NextcloudRemoteClientFactory = NextcloudRemoteClient Function({
+typedef WebDavRemoteClientFactory = WebDavRemoteClient Function({
   required String webDavUrl,
   required String user,
   required String password,
 });
 
-NextcloudRemoteClient createWebDavNextcloudRemoteClient({
+WebDavRemoteClient createWebDavRemoteClientImpl({
   required String webDavUrl,
   required String user,
   required String password,
 }) {
-  return WebDavNextcloudRemoteClient(
+  return WebDavRemoteClientImpl(
     webDavUrl: webDavUrl,
     user: user,
     password: password,
   );
 }
 
-class WebDavNextcloudRemoteClient implements NextcloudRemoteClient {
+class WebDavRemoteClientImpl implements WebDavRemoteClient {
   static const Duration _defaultConnectTimeout = Duration(minutes: 2);
 
-  WebDavNextcloudRemoteClient({
+  WebDavRemoteClientImpl({
     required String webDavUrl,
     required String user,
     required String password,
@@ -96,12 +96,12 @@ class WebDavNextcloudRemoteClient implements NextcloudRemoteClient {
   final webdav.Client _client;
 
   @override
-  Future<List<NextcloudRemoteEntry>> readDir(String path) async {
+  Future<List<WebDavRemoteEntry>> readDir(String path) async {
     _client.setConnectTimeout(_defaultConnectTimeout.inMilliseconds);
     final entries = await _client.readDir(path);
     return entries
         .map(
-          (entry) => NextcloudRemoteEntry(
+          (entry) => WebDavRemoteEntry(
             path: entry.path ?? '',
             name: entry.name ?? '',
             isDirectory: entry.isDir == true,

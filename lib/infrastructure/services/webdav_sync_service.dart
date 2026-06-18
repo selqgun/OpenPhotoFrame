@@ -5,47 +5,47 @@ import 'package:dio/dio.dart';
 import 'package:logging/logging.dart';
 import '../../domain/interfaces/sync_provider.dart';
 import '../../domain/interfaces/storage_provider.dart';
-import 'nextcloud_remote_client.dart';
-import 'nextcloud_source_config.dart';
+import 'webdav_remote_client.dart';
+import 'webdav_source_config.dart';
 
-class NextcloudSyncException implements Exception {
-  const NextcloudSyncException(
+class WebDavSyncException implements Exception {
+  const WebDavSyncException(
     this.code, {
     this.statusCode,
     this.cause,
     this.details,
   });
 
-  final NextcloudSyncErrorCode code;
+  final WebDavSyncErrorCode code;
   final int? statusCode;
   final Object? cause;
   final String? details;
 
   @override
   String toString() => switch (code) {
-    NextcloudSyncErrorCode.invalidShareLink =>
+    WebDavSyncErrorCode.invalidShareLink =>
       'The Nextcloud share link is no longer valid.',
-    NextcloudSyncErrorCode.shareInaccessible =>
+    WebDavSyncErrorCode.shareInaccessible =>
       'The Nextcloud share is no longer accessible.',
-    NextcloudSyncErrorCode.connectionTimeout =>
+    WebDavSyncErrorCode.connectionTimeout =>
       'Connection to Nextcloud timed out.',
-    NextcloudSyncErrorCode.connectionFailed =>
+    WebDavSyncErrorCode.connectionFailed =>
       'Could not connect to Nextcloud. Check internet connection and share link.',
-    NextcloudSyncErrorCode.downloadStalled =>
+    WebDavSyncErrorCode.downloadStalled =>
       'Download timed out after 15 minutes without receiving data.',
-    NextcloudSyncErrorCode.invalidUrlEmpty => 'URL is empty.',
-    NextcloudSyncErrorCode.invalidUrlScheme =>
+    WebDavSyncErrorCode.invalidUrlEmpty => 'URL is empty.',
+    WebDavSyncErrorCode.invalidUrlScheme =>
       'Invalid URL scheme. Use http or https.',
-    NextcloudSyncErrorCode.invalidUrlNoHost =>
+    WebDavSyncErrorCode.invalidUrlNoHost =>
       'Invalid URL. Host is missing.',
-    NextcloudSyncErrorCode.invalidUrlFormat =>
+    WebDavSyncErrorCode.invalidUrlFormat =>
       'Invalid URL format: ${details ?? cause}',
-    NextcloudSyncErrorCode.unknown =>
+    WebDavSyncErrorCode.unknown =>
       'Nextcloud sync failed: ${details ?? cause}',
   };
 }
 
-enum NextcloudSyncErrorCode {
+enum WebDavSyncErrorCode {
   invalidShareLink,
   shareInaccessible,
   connectionTimeout,
@@ -58,8 +58,8 @@ enum NextcloudSyncErrorCode {
   unknown,
 }
 
-class NextcloudFolder {
-  const NextcloudFolder({
+class WebDavFolder {
+  const WebDavFolder({
     required this.path,
     required this.depth,
     this.fileCount = 0,
@@ -67,9 +67,9 @@ class NextcloudFolder {
 
   /// Rebuilds a folder from a (relative) path, deriving the tree depth.
   /// Used to restore the cached folder tree without a server connection.
-  factory NextcloudFolder.fromPath(String path, {int fileCount = 0}) {
-    final normalized = NextcloudSourceConfig.normalizeFolderPath(path);
-    return NextcloudFolder(
+  factory WebDavFolder.fromPath(String path, {int fileCount = 0}) {
+    final normalized = WebDavSourceConfig.normalizeFolderPath(path);
+    return WebDavFolder(
       path: normalized,
       depth: normalized.isEmpty ? 0 : normalized.split('/').length,
       fileCount: fileCount,
@@ -94,7 +94,7 @@ class NextcloudFolder {
   }
 }
 
-class NextcloudSyncService implements SyncProvider {
+class WebDavSyncService implements SyncProvider {
   static const Duration _downloadIdleTimeout = Duration(minutes: 15);
 
   final String webDavUrl;
@@ -102,41 +102,78 @@ class NextcloudSyncService implements SyncProvider {
   final String password;
   final String remotePath;
   final StorageProvider _storageProvider;
-  final NextcloudRemoteClientFactory _clientFactory;
-  final NextcloudSourceConfig _sourceConfig;
-  final _log = Logger('NextcloudSyncService');
+  final WebDavRemoteClientFactory _clientFactory;
+  final WebDavSourceConfig _sourceConfig;
+  final _log = Logger('WebDavSyncService');
 
-  NextcloudSyncService({
+  WebDavSyncService({
     required this.webDavUrl,
     required this.user,
     required this.password,
     required StorageProvider storageProvider,
     this.remotePath = '/',
-    NextcloudRemoteClientFactory clientFactory = createWebDavNextcloudRemoteClient,
-    NextcloudSourceConfig sourceConfig = const NextcloudSourceConfig(),
+    WebDavRemoteClientFactory clientFactory = createWebDavRemoteClientImpl,
+    WebDavSourceConfig sourceConfig = const WebDavSourceConfig(),
   })  : _storageProvider = storageProvider,
         _clientFactory = clientFactory,
         _sourceConfig = sourceConfig;
 
   /// Factory for Public Share Links
   /// Link format: https://cloud.example.com/s/TOKEN
-  factory NextcloudSyncService.fromPublicLink(
+  factory WebDavSyncService.fromPublicLink(
     String link,
     StorageProvider storageProvider, {
-    NextcloudRemoteClientFactory clientFactory = createWebDavNextcloudRemoteClient,
-    NextcloudSourceConfig? sourceConfig,
+    WebDavRemoteClientFactory clientFactory = createWebDavRemoteClientImpl,
+    WebDavSourceConfig? sourceConfig,
   }) {
     final share = NextcloudPublicShare.fromPublicLink(link);
 
-    return NextcloudSyncService(
+    return WebDavSyncService(
       webDavUrl: share.webDavUrl,
       user: share.user,
       password: share.password,
       storageProvider: storageProvider,
       clientFactory: clientFactory,
-      sourceConfig: (sourceConfig ?? const NextcloudSourceConfig()).copyWith(
+      sourceConfig: (sourceConfig ?? const WebDavSourceConfig()).copyWith(
         url: link,
       ),
+    );
+  }
+
+  /// Builds a service from a stored config, handling both auth modes
+  /// (Nextcloud public share link or a plain WebDAV URL with username/password).
+  factory WebDavSyncService.fromConfig(
+    WebDavSourceConfig config,
+    StorageProvider storageProvider, {
+    WebDavRemoteClientFactory clientFactory = createWebDavRemoteClientImpl,
+  }) {
+    final target = resolveTarget(config);
+    return WebDavSyncService(
+      webDavUrl: target.webDavUrl,
+      user: target.user,
+      password: target.password,
+      storageProvider: storageProvider,
+      clientFactory: clientFactory,
+      sourceConfig: config,
+    );
+  }
+
+  /// Resolves the effective WebDAV endpoint and credentials for [config].
+  static ({String webDavUrl, String user, String password}) resolveTarget(
+    WebDavSourceConfig config,
+  ) {
+    if (config.authMode == WebDavAuthMode.userPassword) {
+      return (
+        webDavUrl: config.url,
+        user: config.username,
+        password: config.password,
+      );
+    }
+    final share = NextcloudPublicShare.fromPublicLink(config.url);
+    return (
+      webDavUrl: share.webDavUrl,
+      user: share.user,
+      password: share.password,
     );
   }
 
@@ -144,76 +181,76 @@ class NextcloudSyncService implements SyncProvider {
   String get id => 'nextcloud_public';
 
   static String describeError(Object error) {
-    if (error is NextcloudSyncException) {
+    if (error is WebDavSyncException) {
       return error.toString();
     }
 
     if (error is TimeoutException) {
-      return const NextcloudSyncException(
-        NextcloudSyncErrorCode.downloadStalled,
+      return const WebDavSyncException(
+        WebDavSyncErrorCode.downloadStalled,
       ).toString();
     }
 
     if (error is SocketException) {
-      return const NextcloudSyncException(
-        NextcloudSyncErrorCode.connectionFailed,
+      return const WebDavSyncException(
+        WebDavSyncErrorCode.connectionFailed,
       ).toString();
     }
 
     if (error is DioException) {
       final statusCode = error.response?.statusCode;
       if (statusCode == 401 || statusCode == 404) {
-        return const NextcloudSyncException(
-          NextcloudSyncErrorCode.invalidShareLink,
+        return const WebDavSyncException(
+          WebDavSyncErrorCode.invalidShareLink,
         ).toString();
       }
       if (statusCode == 403) {
-        return const NextcloudSyncException(
-          NextcloudSyncErrorCode.shareInaccessible,
+        return const WebDavSyncException(
+          WebDavSyncErrorCode.shareInaccessible,
         ).toString();
       }
 
       if (error.type == DioExceptionType.connectionTimeout) {
-        return const NextcloudSyncException(
-          NextcloudSyncErrorCode.connectionTimeout,
+        return const WebDavSyncException(
+          WebDavSyncErrorCode.connectionTimeout,
         ).toString();
       }
       if (error.type == DioExceptionType.connectionError) {
-        return const NextcloudSyncException(
-          NextcloudSyncErrorCode.connectionFailed,
+        return const WebDavSyncException(
+          WebDavSyncErrorCode.connectionFailed,
         ).toString();
       }
       if (error.type == DioExceptionType.receiveTimeout) {
-        return const NextcloudSyncException(
-          NextcloudSyncErrorCode.downloadStalled,
+        return const WebDavSyncException(
+          WebDavSyncErrorCode.downloadStalled,
         ).toString();
       }
     }
 
-    return NextcloudSyncException(
-      NextcloudSyncErrorCode.unknown,
+    return WebDavSyncException(
+      WebDavSyncErrorCode.unknown,
       cause: error,
       details: error.toString(),
     ).toString();
   }
 
-  static NextcloudSyncException normalizeError(Object error) {
-    if (error is NextcloudSyncException) {
+  static WebDavSyncException normalizeError(Object error) {
+    if (error is WebDavSyncException) {
       return error;
     }
 
     final statusCode = error is DioException ? error.response?.statusCode : null;
     if (error is TimeoutException) {
-      return NextcloudSyncException(
-        NextcloudSyncErrorCode.downloadStalled,
+      return WebDavSyncException(
+        WebDavSyncErrorCode.downloadStalled,
         statusCode: statusCode,
         cause: error,
       );
     }
 
     if (error is SocketException) {
-      return NextcloudSyncException(
-        NextcloudSyncErrorCode.connectionFailed,
+      return WebDavSyncException(
+        WebDavSyncErrorCode.connectionFailed,
         statusCode: statusCode,
         cause: error,
       );
@@ -221,44 +258,44 @@ class NextcloudSyncService implements SyncProvider {
 
     if (error is DioException) {
       if (statusCode == 401 || statusCode == 404) {
-        return NextcloudSyncException(
-          NextcloudSyncErrorCode.invalidShareLink,
+        return WebDavSyncException(
+          WebDavSyncErrorCode.invalidShareLink,
           statusCode: statusCode,
           cause: error,
         );
       }
       if (statusCode == 403) {
-        return NextcloudSyncException(
-          NextcloudSyncErrorCode.shareInaccessible,
+        return WebDavSyncException(
+          WebDavSyncErrorCode.shareInaccessible,
           statusCode: statusCode,
           cause: error,
         );
       }
       if (error.type == DioExceptionType.connectionTimeout) {
-        return NextcloudSyncException(
-          NextcloudSyncErrorCode.connectionTimeout,
+        return WebDavSyncException(
+          WebDavSyncErrorCode.connectionTimeout,
           statusCode: statusCode,
           cause: error,
         );
       }
       if (error.type == DioExceptionType.connectionError) {
-        return NextcloudSyncException(
-          NextcloudSyncErrorCode.connectionFailed,
+        return WebDavSyncException(
+          WebDavSyncErrorCode.connectionFailed,
           statusCode: statusCode,
           cause: error,
         );
       }
       if (error.type == DioExceptionType.receiveTimeout) {
-        return NextcloudSyncException(
-          NextcloudSyncErrorCode.downloadStalled,
+        return WebDavSyncException(
+          WebDavSyncErrorCode.downloadStalled,
           statusCode: statusCode,
           cause: error,
         );
       }
     }
 
-    return NextcloudSyncException(
-      NextcloudSyncErrorCode.unknown,
+    return WebDavSyncException(
+      WebDavSyncErrorCode.unknown,
       statusCode: statusCode,
       cause: error,
       details: error.toString(),
@@ -267,45 +304,45 @@ class NextcloudSyncService implements SyncProvider {
 
   /// Tests the connection to the WebDAV server.
   /// Returns null on success, or an error message on failure.
-  static Future<NextcloudSyncException?> testConnection(
-    String publicLink, {
-    NextcloudRemoteClientFactory clientFactory = createWebDavNextcloudRemoteClient,
+  static Future<WebDavSyncException?> testConnection(
+    WebDavSourceConfig config, {
+    WebDavRemoteClientFactory clientFactory = createWebDavRemoteClientImpl,
   }) async {
-    final log = Logger('NextcloudSyncService');
-    
-    if (publicLink.isEmpty) {
-      return const NextcloudSyncException(NextcloudSyncErrorCode.invalidUrlEmpty);
+    final log = Logger('WebDavSyncService');
+
+    if (config.url.isEmpty) {
+      return const WebDavSyncException(WebDavSyncErrorCode.invalidUrlEmpty);
     }
-    
+
     try {
-      final uri = Uri.parse(publicLink);
-      
+      final uri = Uri.parse(config.url);
+
       if (uri.scheme != 'http' && uri.scheme != 'https') {
-        return const NextcloudSyncException(NextcloudSyncErrorCode.invalidUrlScheme);
+        return const WebDavSyncException(WebDavSyncErrorCode.invalidUrlScheme);
       }
-      
+
       if (uri.host.isEmpty) {
-        return const NextcloudSyncException(NextcloudSyncErrorCode.invalidUrlNoHost);
+        return const WebDavSyncException(WebDavSyncErrorCode.invalidUrlNoHost);
       }
-      final share = NextcloudPublicShare.fromPublicLink(publicLink);
-      
-      log.info("Testing connection to ${share.webDavUrl}");
-      
+      final target = resolveTarget(config);
+
+      log.info("Testing connection to ${target.webDavUrl}");
+
       final client = clientFactory(
-        webDavUrl: share.webDavUrl,
-        user: share.user,
-        password: share.password,
+        webDavUrl: target.webDavUrl,
+        user: target.user,
+        password: target.password,
       );
-      
+
       // Try to read root directory - this validates the connection
       await client.readDir('/');
-      
+
       log.info("Connection test successful");
       return null; // Success
-      
+
     } on FormatException catch (e) {
-      return NextcloudSyncException(
-        NextcloudSyncErrorCode.invalidUrlFormat,
+      return WebDavSyncException(
+        WebDavSyncErrorCode.invalidUrlFormat,
         cause: e,
         details: e.message,
       );
@@ -316,16 +353,16 @@ class NextcloudSyncService implements SyncProvider {
     }
   }
 
-  static Future<List<NextcloudFolder>> listAvailableFolders(
-    String publicLink, {
-    NextcloudRemoteClientFactory clientFactory = createWebDavNextcloudRemoteClient,
+  static Future<List<WebDavFolder>> listAvailableFolders(
+    WebDavSourceConfig config, {
+    WebDavRemoteClientFactory clientFactory = createWebDavRemoteClientImpl,
   }) async {
     try {
-      final share = NextcloudPublicShare.fromPublicLink(publicLink);
+      final target = resolveTarget(config);
       final client = clientFactory(
-        webDavUrl: share.webDavUrl,
-        user: share.user,
-        password: share.password,
+        webDavUrl: target.webDavUrl,
+        user: target.user,
+        password: target.password,
       );
 
       final folders = await _collectRemoteFolders(
@@ -378,7 +415,7 @@ class NextcloudSyncService implements SyncProvider {
       final folderOrder = <String>[];
       final folderTotals = <String, int>{};
       for (final remoteFile in pendingDownloads) {
-        final folder = NextcloudSourceConfig.parentDirectoryOf(
+        final folder = WebDavSourceConfig.parentDirectoryOf(
           remoteFile.relativePath,
         );
         if (!folderTotals.containsKey(folder)) {
@@ -415,7 +452,7 @@ class NextcloudSyncService implements SyncProvider {
       for (var index = 0; index < pendingDownloads.length; index++) {
         final remoteFile = pendingDownloads[index];
         final localFile = File('${localDir.path}/${remoteFile.relativePath}');
-        final folder = NextcloudSourceConfig.parentDirectoryOf(
+        final folder = WebDavSourceConfig.parentDirectoryOf(
           remoteFile.relativePath,
         );
 
@@ -489,7 +526,7 @@ class NextcloudSyncService implements SyncProvider {
   }
 
   Future<List<_RemoteImage>> _collectRemoteImages(
-    NextcloudRemoteClient client, {
+    WebDavRemoteClient client, {
     required String remoteDirectoryPath,
     required String relativeDirectoryPath,
   }) async {
@@ -567,15 +604,15 @@ class NextcloudSyncService implements SyncProvider {
   /// counting the image files directly contained in each. The PROPFIND response
   /// already carries the file entries, so the counts come for free (no extra
   /// requests beyond the directory listing we do anyway).
-  static Future<List<NextcloudFolder>> _collectRemoteFolders(
-    NextcloudRemoteClient client, {
+  static Future<List<WebDavFolder>> _collectRemoteFolders(
+    WebDavRemoteClient client, {
     required String remoteDirectoryPath,
     required String relativeDirectoryPath,
   }) async {
     final entries = await client.readDir(remoteDirectoryPath);
 
     var imageCount = 0;
-    final subDirectories = <NextcloudRemoteEntry>[];
+    final subDirectories = <WebDavRemoteEntry>[];
     for (final entry in entries) {
       if (entry.isDirectory) {
         subDirectories.add(entry);
@@ -584,8 +621,8 @@ class NextcloudSyncService implements SyncProvider {
       }
     }
 
-    final folders = <NextcloudFolder>[
-      NextcloudFolder.fromPath(relativeDirectoryPath, fileCount: imageCount),
+    final folders = <WebDavFolder>[
+      WebDavFolder.fromPath(relativeDirectoryPath, fileCount: imageCount),
     ];
 
     for (final entry in subDirectories) {
@@ -605,7 +642,7 @@ class NextcloudSyncService implements SyncProvider {
   }
 
   static String _joinRelativePath(String directoryPath, String name) {
-    final normalizedDirectory = NextcloudSourceConfig.normalizeFolderPath(directoryPath);
+    final normalizedDirectory = WebDavSourceConfig.normalizeFolderPath(directoryPath);
     if (normalizedDirectory.isEmpty) {
       return name;
     }

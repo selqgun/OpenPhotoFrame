@@ -66,6 +66,12 @@
   
   "nextcloudPublicShareUrl": "Nextcloud öffentlicher Freigabe-Link",
   "nextcloudUrlHint": "https://cloud.example.com/s/abc123",
+  "webdavAuthPublicShare": "Öffentliche Freigabe",
+  "webdavAuthLogin": "WebDAV-Login",
+  "webdavUrlLabel": "WebDAV-URL",
+  "webdavUrlHint": "https://cloud.example.com/remote.php/dav/files/user/",
+  "webdavUsername": "Benutzername",
+  "webdavPassword": "Passwort",
   "testConnection": "Verbindung testen",
   "testing": "Teste...",
   "connectionSuccessful": "Verbindung erfolgreich!",

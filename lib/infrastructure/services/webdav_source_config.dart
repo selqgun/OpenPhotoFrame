@@ -1,12 +1,22 @@
-enum NextcloudFolderSyncMode {
+enum WebDavFolderSyncMode {
   all,
   selectedFolders,
 }
 
+/// How the WebDAV target is authenticated.
+enum WebDavAuthMode {
+  /// A Nextcloud public share link (`https://host/s/TOKEN`); no password.
+  publicShare,
+
+  /// A plain WebDAV URL with username/password (also covers a Nextcloud
+  /// account's personal WebDAV endpoint).
+  userPassword,
+}
+
 /// A folder remembered from the last successful remote scan, including its
 /// image count, so the folder picker can render (with counts) while offline.
-class CachedNextcloudFolder {
-  const CachedNextcloudFolder({
+class CachedWebDavFolder {
+  const CachedWebDavFolder({
     required this.path,
     this.fileCount = 0,
   });
@@ -16,39 +26,45 @@ class CachedNextcloudFolder {
 
   /// Parses one cache entry. Supports the legacy format where entries were
   /// bare path strings (before counts were stored).
-  factory CachedNextcloudFolder.fromEntry(Object? entry) {
+  factory CachedWebDavFolder.fromEntry(Object? entry) {
     if (entry is Map) {
-      return CachedNextcloudFolder(
+      return CachedWebDavFolder(
         path: '${entry['path'] ?? ''}',
         fileCount: (entry['count'] as num?)?.toInt() ?? 0,
       );
     }
-    return CachedNextcloudFolder(path: '$entry');
+    return CachedWebDavFolder(path: '$entry');
   }
 
   Map<String, dynamic> toMap() => {
-    'path': NextcloudSourceConfig.normalizeFolderPath(path),
+    'path': WebDavSourceConfig.normalizeFolderPath(path),
     'count': fileCount,
   };
 }
 
-class NextcloudSourceConfig {
-  const NextcloudSourceConfig({
+class WebDavSourceConfig {
+  const WebDavSourceConfig({
     this.url = '',
-    this.folderSyncMode = NextcloudFolderSyncMode.all,
+    this.authMode = WebDavAuthMode.publicShare,
+    this.username = '',
+    this.password = '',
+    this.folderSyncMode = WebDavFolderSyncMode.all,
     this.selectedFolders = const <String>[],
-    this.cachedFolders = const <CachedNextcloudFolder>[],
+    this.cachedFolders = const <CachedWebDavFolder>[],
   });
 
   final String url;
-  final NextcloudFolderSyncMode folderSyncMode;
+  final WebDavAuthMode authMode;
+  final String username;
+  final String password;
+  final WebDavFolderSyncMode folderSyncMode;
   final List<String> selectedFolders;
 
   /// The full available folder tree (with image counts) from the last
   /// successful load. Lets the folder picker render offline (no connection).
-  final List<CachedNextcloudFolder> cachedFolders;
+  final List<CachedWebDavFolder> cachedFolders;
 
-  factory NextcloudSourceConfig.fromMap(Map<String, dynamic> config) {
+  factory WebDavSourceConfig.fromMap(Map<String, dynamic> config) {
     List<String> parseFolderList(Object? raw) => switch (raw) {
       List<dynamic>() => raw.map((entry) => '$entry').toList(),
       _ => const <String>[],
@@ -56,21 +72,50 @@ class NextcloudSourceConfig {
 
     final rawCached = config['cached_folders'];
     final cachedFolders = switch (rawCached) {
-      List<dynamic>() => rawCached.map(CachedNextcloudFolder.fromEntry).toList(),
-      _ => const <CachedNextcloudFolder>[],
+      List<dynamic>() => rawCached.map(CachedWebDavFolder.fromEntry).toList(),
+      _ => const <CachedWebDavFolder>[],
     };
 
-    return NextcloudSourceConfig(
+    return WebDavSourceConfig(
       url: (config['url'] as String? ?? '').trim(),
+      authMode: (config['auth_mode'] as String?) == 'user_password'
+          ? WebDavAuthMode.userPassword
+          : WebDavAuthMode.publicShare,
+      username: (config['username'] as String? ?? '').trim(),
+      password: config['password'] as String? ?? '',
       folderSyncMode: (config['folder_sync_mode'] as String?) == 'selected'
-          ? NextcloudFolderSyncMode.selectedFolders
-          : NextcloudFolderSyncMode.all,
+          ? WebDavFolderSyncMode.selectedFolders
+          : WebDavFolderSyncMode.all,
       selectedFolders: parseFolderList(config['selected_folders']),
       cachedFolders: cachedFolders,
     );
   }
 
-  bool get syncAllFolders => folderSyncMode == NextcloudFolderSyncMode.all;
+  /// Splits inline `user:pass@host` credentials out of a WebDAV URL, returning
+  /// the cleaned URL plus any extracted username/password (null when absent).
+  static ({String url, String? username, String? password}) splitInlineCredentials(
+    String input,
+  ) {
+    final trimmed = input.trim();
+    try {
+      final uri = Uri.parse(trimmed);
+      if (uri.userInfo.isEmpty) {
+        return (url: trimmed, username: null, password: null);
+      }
+      final separator = uri.userInfo.indexOf(':');
+      final rawUser = separator == -1 ? uri.userInfo : uri.userInfo.substring(0, separator);
+      final rawPass = separator == -1 ? '' : uri.userInfo.substring(separator + 1);
+      return (
+        url: uri.replace(userInfo: '').toString(),
+        username: Uri.decodeComponent(rawUser),
+        password: Uri.decodeComponent(rawPass),
+      );
+    } catch (_) {
+      return (url: trimmed, username: null, password: null);
+    }
+  }
+
+  bool get syncAllFolders => folderSyncMode == WebDavFolderSyncMode.all;
 
   Set<String> get normalizedSelectedFolders {
     final normalizedFolders = selectedFolders
@@ -97,14 +142,20 @@ class NextcloudSourceConfig {
     return includesDirectory(parentDirectoryOf(relativePath));
   }
 
-  NextcloudSourceConfig copyWith({
+  WebDavSourceConfig copyWith({
     String? url,
-    NextcloudFolderSyncMode? folderSyncMode,
+    WebDavAuthMode? authMode,
+    String? username,
+    String? password,
+    WebDavFolderSyncMode? folderSyncMode,
     List<String>? selectedFolders,
-    List<CachedNextcloudFolder>? cachedFolders,
+    List<CachedWebDavFolder>? cachedFolders,
   }) {
-    return NextcloudSourceConfig(
+    return WebDavSourceConfig(
       url: url ?? this.url,
+      authMode: authMode ?? this.authMode,
+      username: username ?? this.username,
+      password: password ?? this.password,
       folderSyncMode: folderSyncMode ?? this.folderSyncMode,
       selectedFolders: selectedFolders ?? this.selectedFolders,
       cachedFolders: cachedFolders ?? this.cachedFolders,
@@ -114,9 +165,15 @@ class NextcloudSourceConfig {
   Map<String, dynamic> toMap() {
     return {
       'url': url,
+      'auth_mode': switch (authMode) {
+        WebDavAuthMode.publicShare => 'public_share',
+        WebDavAuthMode.userPassword => 'user_password',
+      },
+      'username': username,
+      'password': password,
       'folder_sync_mode': switch (folderSyncMode) {
-        NextcloudFolderSyncMode.all => 'all',
-        NextcloudFolderSyncMode.selectedFolders => 'selected',
+        WebDavFolderSyncMode.all => 'all',
+        WebDavFolderSyncMode.selectedFolders => 'selected',
       },
       'selected_folders': normalizedSelectedFolders.toList()..sort(),
       'cached_folders': cachedFolders.map((folder) => folder.toMap()).toList(),

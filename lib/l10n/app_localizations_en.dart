@@ -155,6 +155,25 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nextcloudUrlHint => 'https://cloud.example.com/s/abc123';
 
   @override
+  String get webdavAuthPublicShare => 'Public share';
+
+  @override
+  String get webdavAuthLogin => 'WebDAV login';
+
+  @override
+  String get webdavUrlLabel => 'WebDAV URL';
+
+  @override
+  String get webdavUrlHint =>
+      'https://cloud.example.com/remote.php/dav/files/user/';
+
+  @override
+  String get webdavUsername => 'Username';
+
+  @override
+  String get webdavPassword => 'Password';
+
+  @override
   String get testConnection => 'Test Connection';
 
   @override

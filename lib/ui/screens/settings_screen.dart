@@ -15,8 +15,8 @@ import '../../infrastructure/repositories/hybrid_photo_repository.dart';
 import '../../infrastructure/services/photo_service.dart';
 import '../../infrastructure/services/native_updater_service.dart';
 import '../../infrastructure/services/update_service.dart';
-import '../../infrastructure/services/nextcloud_source_config.dart';
-import '../../infrastructure/services/nextcloud_sync_service.dart';
+import '../../infrastructure/services/webdav_source_config.dart';
+import '../../infrastructure/services/webdav_sync_service.dart';
 import '../../infrastructure/services/autostart_service.dart';
 import '../../infrastructure/services/native_screen_control_service.dart';
 import '../../infrastructure/services/keep_alive_service.dart';
@@ -48,6 +48,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late bool _blurBorders;
   late String _syncType;
   late TextEditingController _nextcloudUrlController;
+  late WebDavAuthMode _webdavAuthMode;
+  late TextEditingController _webdavUserController;
+  late TextEditingController _webdavPasswordController;
   late int _syncIntervalMinutes;
   late bool _deleteOrphanedFiles;
   late bool _autostartOnBoot;
@@ -84,9 +87,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   String? _connectionTestResult;
   bool? _connectionTestSuccess;
 
-  late NextcloudFolderSyncMode _nextcloudFolderSyncMode;
+  late WebDavFolderSyncMode _nextcloudFolderSyncMode;
   late Set<String> _selectedNextcloudFolders;
-  List<NextcloudFolder> _availableNextcloudFolders = [];
+  List<WebDavFolder> _availableNextcloudFolders = [];
   // Number of locally synced images per folder path (relative). Used to show
   // "synced / total" in the picker.
   Map<String, int> _localFolderImageCounts = const {};
@@ -105,7 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   
   // Track original values to detect changes
   late String _originalSyncType;
-  late NextcloudSourceConfig _originalNextcloudSourceConfig;
+  late WebDavSourceConfig _originalWebDavSourceConfig;
   
   @override
   void initState() {
@@ -176,11 +179,16 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     // Check Device Admin status
     _checkDeviceAdmin();
     
-    final nextcloudConfig = NextcloudSourceConfig.fromMap(
+    final nextcloudConfig = WebDavSourceConfig.fromMap(
       config.getSourceConfig('nextcloud_link'),
     );
     _nextcloudUrlController = TextEditingController(
       text: nextcloudConfig.url,
+    );
+    _webdavAuthMode = nextcloudConfig.authMode;
+    _webdavUserController = TextEditingController(text: nextcloudConfig.username);
+    _webdavPasswordController = TextEditingController(
+      text: nextcloudConfig.password,
     );
     _nextcloudFolderSyncMode = nextcloudConfig.folderSyncMode;
     _selectedNextcloudFolders = {...nextcloudConfig.normalizedSelectedFolders};
@@ -189,7 +197,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     // cache existed, so previously subscribed folders still show up offline.
     final cachedFileCounts = <String, int>{
       for (final folder in nextcloudConfig.cachedFolders)
-        NextcloudSourceConfig.normalizeFolderPath(folder.path): folder.fileCount,
+        WebDavSourceConfig.normalizeFolderPath(folder.path): folder.fileCount,
     };
     final knownFolderPaths = <String>{
       ...cachedFileCounts.keys,
@@ -197,7 +205,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     };
     _availableNextcloudFolders = (knownFolderPaths.toList()..sort())
         .map(
-          (path) => NextcloudFolder.fromPath(
+          (path) => WebDavFolder.fromPath(
             path,
             fileCount: cachedFileCounts[path] ?? 0,
           ),
@@ -206,7 +214,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     
     // Store original values for comparison on save
     _originalSyncType = _syncType;
-    _originalNextcloudSourceConfig = nextcloudConfig;
+    _originalWebDavSourceConfig = nextcloudConfig;
     
     // Load saved album selection for device_photos mode
     final devicePhotosConfig = config.getSourceConfig('device_photos');
@@ -222,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
     if (_syncType == 'nextcloud_link' &&
         nextcloudConfig.url.isNotEmpty &&
-        _nextcloudFolderSyncMode == NextcloudFolderSyncMode.selectedFolders) {
+        _nextcloudFolderSyncMode == WebDavFolderSyncMode.selectedFolders) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _refreshLocalFolderImageCounts();
         _loadAvailableNextcloudFolders();
@@ -274,6 +282,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _nextcloudUrlController.dispose();
+    _webdavUserController.dispose();
+    _webdavPasswordController.dispose();
     super.dispose();
   }
   
@@ -290,11 +300,11 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     
     // Detect if sync configuration changed
     final newNextcloudUrl = _nextcloudUrlController.text.trim();
-    final newNextcloudSourceConfig = _buildNextcloudSourceConfig(
+    final newWebDavSourceConfig = _buildWebDavSourceConfig(
       url: newNextcloudUrl,
     );
     final nextcloudConfigChanged =
-      !_nextcloudConfigsEqual(newNextcloudSourceConfig, _originalNextcloudSourceConfig);
+      !_nextcloudConfigsEqual(newWebDavSourceConfig, _originalWebDavSourceConfig);
     final syncConfigChanged =
       _syncType != _originalSyncType ||
       (_syncType == 'nextcloud_link' && nextcloudConfigChanged);
@@ -352,7 +362,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     await KeepAliveService.setEnabled(_keepAliveEnabled);
     
     if (_syncType == 'nextcloud_link') {
-      config.setSourceConfig('nextcloud_link', newNextcloudSourceConfig.toMap());
+      config.setSourceConfig('nextcloud_link', newWebDavSourceConfig.toMap());
     }
     
     await config.save();
@@ -1097,13 +1107,40 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          SegmentedButton<WebDavAuthMode>(
+            segments: [
+              ButtonSegment(
+                value: WebDavAuthMode.publicShare,
+                label: Text(localizations.webdavAuthPublicShare),
+              ),
+              ButtonSegment(
+                value: WebDavAuthMode.userPassword,
+                label: Text(localizations.webdavAuthLogin),
+              ),
+            ],
+            selected: {_webdavAuthMode},
+            onSelectionChanged: (selection) {
+              setState(() {
+                _webdavAuthMode = selection.first;
+                _connectionTestResult = null;
+                _connectionTestSuccess = null;
+                _availableNextcloudFolders = [];
+                _nextcloudFolderLoadError = null;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
           TextField(
             controller: _nextcloudUrlController,
             decoration: InputDecoration(
-              labelText: AppLocalizations.of(context)!.nextcloudPublicShareUrl,
-              hintText: AppLocalizations.of(context)!.nextcloudUrlHint,
-              prefixIcon: Icon(Icons.link),
-              border: OutlineInputBorder(),
+              labelText: _webdavAuthMode == WebDavAuthMode.userPassword
+                  ? localizations.webdavUrlLabel
+                  : localizations.nextcloudPublicShareUrl,
+              hintText: _webdavAuthMode == WebDavAuthMode.userPassword
+                  ? localizations.webdavUrlHint
+                  : localizations.nextcloudUrlHint,
+              prefixIcon: const Icon(Icons.link),
+              border: const OutlineInputBorder(),
             ),
             keyboardType: TextInputType.url,
             onChanged: (_) {
@@ -1115,6 +1152,39 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               });
             },
           ),
+          if (_webdavAuthMode == WebDavAuthMode.userPassword) ...[
+            const SizedBox(height: 8),
+            TextField(
+              controller: _webdavUserController,
+              decoration: InputDecoration(
+                labelText: localizations.webdavUsername,
+                prefixIcon: const Icon(Icons.person),
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (_) {
+                setState(() {
+                  _connectionTestResult = null;
+                  _connectionTestSuccess = null;
+                });
+              },
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _webdavPasswordController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: localizations.webdavPassword,
+                prefixIcon: const Icon(Icons.lock),
+                border: const OutlineInputBorder(),
+              ),
+              onChanged: (_) {
+                setState(() {
+                  _connectionTestResult = null;
+                  _connectionTestSuccess = null;
+                });
+              },
+            ),
+          ],
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _isTestingConnection ? null : _testConnection,
@@ -1150,10 +1220,10 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             ),
           ],
           const SizedBox(height: 16),
-          RadioListTile<NextcloudFolderSyncMode>(
+          RadioListTile<WebDavFolderSyncMode>(
             title: Text(localizations.syncAllNextcloudFolders),
             subtitle: Text(localizations.syncAllNextcloudFoldersSubtitle),
-            value: NextcloudFolderSyncMode.all,
+            value: WebDavFolderSyncMode.all,
             groupValue: _nextcloudFolderSyncMode,
             onChanged: (value) {
               if (value == null) {
@@ -1164,10 +1234,10 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               });
             },
           ),
-          RadioListTile<NextcloudFolderSyncMode>(
+          RadioListTile<WebDavFolderSyncMode>(
             title: Text(localizations.syncSelectedNextcloudFolders),
             subtitle: Text(localizations.syncSelectedNextcloudFoldersSubtitle),
-            value: NextcloudFolderSyncMode.selectedFolders,
+            value: WebDavFolderSyncMode.selectedFolders,
             groupValue: _nextcloudFolderSyncMode,
             onChanged: (value) {
               if (value == null) {
@@ -1181,16 +1251,16 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               });
             },
           ),
-          if (_nextcloudFolderSyncMode == NextcloudFolderSyncMode.selectedFolders) ...[
+          if (_nextcloudFolderSyncMode == WebDavFolderSyncMode.selectedFolders) ...[
             const SizedBox(height: 8),
-            _buildNextcloudFolderSelection(),
+            _buildWebDavFolderSelection(),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildNextcloudFolderSelection() {
+  Widget _buildWebDavFolderSelection() {
     final localizations = AppLocalizations.of(context)!;
 
     return Column(
@@ -1282,8 +1352,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       _connectionTestSuccess = null;
     });
     
-    final error = await NextcloudSyncService.testConnection(
-      _nextcloudUrlController.text.trim(),
+    final error = await WebDavSyncService.testConnection(
+      _buildWebDavSourceConfig(url: _nextcloudUrlController.text.trim()),
     );
     
     if (mounted) {
@@ -1313,7 +1383,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     });
 
     try {
-      final folders = await NextcloudSyncService.listAvailableFolders(publicLink);
+      final folders = await WebDavSyncService.listAvailableFolders(
+        _buildWebDavSourceConfig(url: publicLink),
+      );
       final availablePaths = folders.map((folder) => folder.path).toSet();
 
       if (!mounted) {
@@ -1346,7 +1418,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
   /// Trailing badge for a folder row: "synced / total" with a check mark once
   /// every image in that folder is present locally.
-  Widget _buildFolderSyncBadge(NextcloudFolder folder) {
+  Widget _buildFolderSyncBadge(WebDavFolder folder) {
     final colorScheme = Theme.of(context).colorScheme;
     final total = folder.fileCount;
     final rawLocal = _localFolderImageCounts[folder.path] ?? 0;
@@ -1392,7 +1464,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           final relativePath = entity.path.length > prefixLength
               ? entity.path.substring(prefixLength)
               : '';
-          final folder = NextcloudSourceConfig.parentDirectoryOf(relativePath);
+          final folder = WebDavSourceConfig.parentDirectoryOf(relativePath);
           counts[folder] = (counts[folder] ?? 0) + 1;
         }
       }
@@ -1414,14 +1486,30 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         lower.endsWith('.webp');
   }
 
-  NextcloudSourceConfig _buildNextcloudSourceConfig({required String url}) {
-    return NextcloudSourceConfig(
-      url: url,
+  WebDavSourceConfig _buildWebDavSourceConfig({required String url}) {
+    var resolvedUrl = url;
+    var username = _webdavUserController.text.trim();
+    var password = _webdavPasswordController.text;
+
+    if (_webdavAuthMode == WebDavAuthMode.userPassword) {
+      // Accept an inline `user:pass@host` URL; explicit fields take priority.
+      final split = WebDavSourceConfig.splitInlineCredentials(url);
+      resolvedUrl = split.url;
+      if (username.isEmpty && split.username != null) username = split.username!;
+      if (password.isEmpty && split.password != null) password = split.password!;
+    }
+
+    final isUserPassword = _webdavAuthMode == WebDavAuthMode.userPassword;
+    return WebDavSourceConfig(
+      url: resolvedUrl,
+      authMode: _webdavAuthMode,
+      username: isUserPassword ? username : '',
+      password: isUserPassword ? password : '',
       folderSyncMode: _nextcloudFolderSyncMode,
       selectedFolders: _selectedNextcloudFolders.toList()..sort(),
       cachedFolders: _availableNextcloudFolders
           .map(
-            (folder) => CachedNextcloudFolder(
+            (folder) => CachedWebDavFolder(
               path: folder.path,
               fileCount: folder.fileCount,
             ),
@@ -1431,13 +1519,17 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   }
 
   bool _nextcloudConfigsEqual(
-    NextcloudSourceConfig left,
-    NextcloudSourceConfig right,
+    WebDavSourceConfig left,
+    WebDavSourceConfig right,
   ) {
     final leftFolders = left.normalizedSelectedFolders.toList()..sort();
     final rightFolders = right.normalizedSelectedFolders.toList()..sort();
 
-    if (left.url != right.url || left.folderSyncMode != right.folderSyncMode) {
+    if (left.url != right.url ||
+        left.authMode != right.authMode ||
+        left.username != right.username ||
+        left.password != right.password ||
+        left.folderSyncMode != right.folderSyncMode) {
       return false;
     }
 
@@ -1628,27 +1720,27 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
 
   String _localizeNextcloudError(Object? error) {
     final l10n = AppLocalizations.of(context)!;
-    if (error is NextcloudSyncException) {
+    if (error is WebDavSyncException) {
       return switch (error.code) {
-        NextcloudSyncErrorCode.invalidShareLink =>
+        WebDavSyncErrorCode.invalidShareLink =>
           l10n.nextcloudErrorInvalidShareLink,
-        NextcloudSyncErrorCode.shareInaccessible =>
+        WebDavSyncErrorCode.shareInaccessible =>
           l10n.nextcloudErrorShareInaccessible,
-        NextcloudSyncErrorCode.connectionTimeout =>
+        WebDavSyncErrorCode.connectionTimeout =>
           l10n.nextcloudErrorConnectionTimeout,
-        NextcloudSyncErrorCode.connectionFailed =>
+        WebDavSyncErrorCode.connectionFailed =>
           l10n.nextcloudErrorConnectionFailed,
-        NextcloudSyncErrorCode.downloadStalled =>
+        WebDavSyncErrorCode.downloadStalled =>
           l10n.nextcloudErrorDownloadStalled,
-        NextcloudSyncErrorCode.invalidUrlEmpty =>
+        WebDavSyncErrorCode.invalidUrlEmpty =>
           l10n.nextcloudErrorInvalidUrlEmpty,
-        NextcloudSyncErrorCode.invalidUrlScheme =>
+        WebDavSyncErrorCode.invalidUrlScheme =>
           l10n.nextcloudErrorInvalidUrlScheme,
-        NextcloudSyncErrorCode.invalidUrlNoHost =>
+        WebDavSyncErrorCode.invalidUrlNoHost =>
           l10n.nextcloudErrorInvalidUrlNoHost,
-        NextcloudSyncErrorCode.invalidUrlFormat =>
+        WebDavSyncErrorCode.invalidUrlFormat =>
           l10n.nextcloudErrorInvalidUrlFormat(error.details ?? ''),
-        NextcloudSyncErrorCode.unknown =>
+        WebDavSyncErrorCode.unknown =>
           l10n.nextcloudErrorUnknown(error.details ?? error.cause?.toString() ?? ''),
       };
     }

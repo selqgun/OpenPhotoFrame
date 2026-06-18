@@ -15,8 +15,8 @@ import 'domain/interfaces/display_controller.dart';
 import 'infrastructure/services/app_initializer.dart';
 import 'infrastructure/services/json_config_service.dart';
 import 'infrastructure/services/exif_metadata_provider.dart';
-import 'infrastructure/services/nextcloud_source_config.dart';
-import 'infrastructure/services/nextcloud_sync_service.dart';
+import 'infrastructure/services/webdav_source_config.dart';
+import 'infrastructure/services/webdav_sync_service.dart';
 import 'infrastructure/services/noop_sync_service.dart';
 import 'infrastructure/services/photo_service.dart';
 import 'infrastructure/services/local_storage_provider.dart';
@@ -119,14 +119,9 @@ class OpenPhotoFrameApp extends StatelessWidget {
               final sourceConfig = config.getSourceConfig(type);
 
               if (type == 'nextcloud_link') {
-                final nextcloudConfig = NextcloudSourceConfig.fromMap(sourceConfig);
-                final url = nextcloudConfig.url;
-                if (url.isNotEmpty) {
-                  return NextcloudSyncService.fromPublicLink(
-                    url,
-                    storage,
-                    sourceConfig: nextcloudConfig,
-                  );
+                final webdavConfig = WebDavSourceConfig.fromMap(sourceConfig);
+                if (webdavConfig.url.isNotEmpty) {
+                  return WebDavSyncService.fromConfig(webdavConfig, storage);
                 }
               }
 
