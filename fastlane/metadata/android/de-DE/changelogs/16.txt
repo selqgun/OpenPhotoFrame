@@ -1,0 +1,5 @@
+Neue Funktionen:
+• Verbindung zu WebDAV per Benutzername und Passwort (z. B. ein Nextcloud-Konto), zusätzlich zu öffentlichen Freigabe-Links
+
+Fehlerbehebungen:
+• Bilder, die kleiner als der Bildschirm sind, werden jetzt hochskaliert

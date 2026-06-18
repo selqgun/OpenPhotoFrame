@@ -1,0 +1,5 @@
+New features:
+• Connect to WebDAV with a username and password (e.g. a Nextcloud account), in addition to public share links
+
+Fixes:
+• Photos smaller than the screen are now scaled up to fill it
