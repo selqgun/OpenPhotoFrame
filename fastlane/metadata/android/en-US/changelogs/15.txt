@@ -1,0 +1,3 @@
+New features:
+• Optional automatic updates from GitHub (opt-in, at the bottom of Settings)
+• Installs silently when the app is set as Device Owner, otherwise asks before installing

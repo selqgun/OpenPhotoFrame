@@ -1,0 +1,3 @@
+Neue Funktionen:
+• Optionale automatische Updates über GitHub (opt-in, unten in den Einstellungen)
+• Installiert lautlos, wenn die App als Device Owner eingerichtet ist, sonst mit Rückfrage vor der Installation
