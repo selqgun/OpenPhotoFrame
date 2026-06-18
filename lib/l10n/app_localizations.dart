@@ -740,6 +740,84 @@ abstract class AppLocalizations {
   /// **'Notification permission is required for Keep App Running'**
   String get notificationPermissionRequired;
 
+  /// No description provided for @autoUpdateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic updates'**
+  String get autoUpdateTitle;
+
+  /// No description provided for @autoUpdateSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Check GitHub for new versions and install them'**
+  String get autoUpdateSubtitle;
+
+  /// No description provided for @autoUpdateFdroidNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Only for installs from GitHub. If you installed via F-Droid, leave this off and update through F-Droid.'**
+  String get autoUpdateFdroidNote;
+
+  /// No description provided for @autoUpdateSilentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Install without confirmation'**
+  String get autoUpdateSilentTitle;
+
+  /// No description provided for @autoUpdateSilentSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Device Owner detected: updates can be installed silently in the background.'**
+  String get autoUpdateSilentSubtitle;
+
+  /// No description provided for @autoUpdatePromptNote.
+  ///
+  /// In en, this message translates to:
+  /// **'When an update is available, you\'ll be asked before it is installed.'**
+  String get autoUpdatePromptNote;
+
+  /// No description provided for @autoUpdateCheckNow.
+  ///
+  /// In en, this message translates to:
+  /// **'Check now'**
+  String get autoUpdateCheckNow;
+
+  /// No description provided for @autoUpdateUpToDate.
+  ///
+  /// In en, this message translates to:
+  /// **'You\'re up to date.'**
+  String get autoUpdateUpToDate;
+
+  /// No description provided for @updateAvailableTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Update available'**
+  String get updateAvailableTitle;
+
+  /// No description provided for @updateAvailableMessage.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} is available. Download and install it now?'**
+  String updateAvailableMessage(String version);
+
+  /// No description provided for @updateDownloading.
+  ///
+  /// In en, this message translates to:
+  /// **'Downloading…'**
+  String get updateDownloading;
+
+  /// No description provided for @updateSkip.
+  ///
+  /// In en, this message translates to:
+  /// **'Skip'**
+  String get updateSkip;
+
+  /// No description provided for @updateDownloadInstall.
+  ///
+  /// In en, this message translates to:
+  /// **'Download & install'**
+  String get updateDownloadInstall;
+
   /// No description provided for @keepAliveDialogTitle.
   ///
   /// In en, this message translates to:

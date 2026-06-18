@@ -76,6 +76,23 @@ class FakeConfigProvider extends ChangeNotifier implements ConfigProvider {
   bool keepAliveEnabled;
 
   @override
+  bool get autoUpdateEnabled => false;
+  @override
+  set autoUpdateEnabled(bool value) {}
+  @override
+  bool get autoUpdateSilent => false;
+  @override
+  set autoUpdateSilent(bool value) {}
+  @override
+  String? get autoUpdateSkippedVersion => null;
+  @override
+  set autoUpdateSkippedVersion(String? value) {}
+  @override
+  DateTime? get autoUpdateLastCheck => null;
+  @override
+  set autoUpdateLastCheck(DateTime? value) {}
+
+  @override
   bool get showClock => false;
 
   @override

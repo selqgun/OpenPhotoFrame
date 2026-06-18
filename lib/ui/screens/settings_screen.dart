@@ -13,6 +13,8 @@ import '../../domain/interfaces/storage_provider.dart';
 import '../../domain/interfaces/sync_provider.dart';
 import '../../infrastructure/repositories/hybrid_photo_repository.dart';
 import '../../infrastructure/services/photo_service.dart';
+import '../../infrastructure/services/native_updater_service.dart';
+import '../../infrastructure/services/update_service.dart';
 import '../../infrastructure/services/nextcloud_source_config.dart';
 import '../../infrastructure/services/nextcloud_sync_service.dart';
 import '../../infrastructure/services/autostart_service.dart';
@@ -50,6 +52,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late bool _deleteOrphanedFiles;
   late bool _autostartOnBoot;
   late bool _keepAliveEnabled;
+  late bool _autoUpdateEnabled;
+  late bool _autoUpdateSilent;
+  bool _isDeviceOwner = false;
   
   // Clock settings
   late bool _showClock;
@@ -128,6 +133,16 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _deleteOrphanedFiles = config.deleteOrphanedFiles;
     _autostartOnBoot = config.autostartOnBoot;
     _keepAliveEnabled = config.keepAliveEnabled;
+    _autoUpdateEnabled = config.autoUpdateEnabled;
+    _autoUpdateSilent = config.autoUpdateSilent;
+    if (Platform.isAndroid) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final isOwner = await NativeUpdaterService.isDeviceOwner();
+        if (mounted) {
+          setState(() => _isDeviceOwner = isOwner);
+        }
+      });
+    }
     _showClock = config.showClock;
     _clockSize = config.clockSize;
     _clockPosition = config.clockPosition;
@@ -304,6 +319,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     config.deleteOrphanedFiles = _deleteOrphanedFiles;
     config.autostartOnBoot = _autostartOnBoot;
     config.keepAliveEnabled = _keepAliveEnabled;
+    config.autoUpdateEnabled = _autoUpdateEnabled;
+    config.autoUpdateSilent = _autoUpdateSilent;
     config.showClock = _showClock;
     config.clockSize = _clockSize;
     config.clockPosition = _clockPosition;
@@ -613,7 +630,10 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 setState(() => _keepAliveEnabled = value);
               },
             ),
-            
+
+            const SizedBox(height: 8),
+            _buildAutoUpdateSection(),
+
             const SizedBox(height: 24),
             const Divider(),
             const SizedBox(height: 16),
@@ -642,6 +662,78 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
   
+  Widget _buildAutoUpdateSection() {
+    final l10n = AppLocalizations.of(context)!;
+    final hintColor = Theme.of(context).colorScheme.onSurfaceVariant;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SwitchListTile(
+          title: Text(l10n.autoUpdateTitle),
+          subtitle: Text(l10n.autoUpdateSubtitle),
+          secondary: const Icon(Icons.system_update),
+          value: _autoUpdateEnabled,
+          onChanged: (value) {
+            setState(() {
+              _autoUpdateEnabled = value;
+              if (!value) _autoUpdateSilent = false;
+            });
+          },
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+          child: Text(
+            l10n.autoUpdateFdroidNote,
+            style: TextStyle(fontSize: 12, color: hintColor),
+          ),
+        ),
+        if (_autoUpdateEnabled) ...[
+          if (_isDeviceOwner)
+            CheckboxListTile(
+              title: Text(l10n.autoUpdateSilentTitle),
+              subtitle: Text(l10n.autoUpdateSilentSubtitle),
+              value: _autoUpdateSilent,
+              onChanged: (value) =>
+                  setState(() => _autoUpdateSilent = value ?? false),
+            )
+          else
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Text(
+                l10n.autoUpdatePromptNote,
+                style: TextStyle(fontSize: 12, color: hintColor),
+              ),
+            ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: OutlinedButton.icon(
+              onPressed: _checkForUpdateNow,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: Text(l10n.autoUpdateCheckNow),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _checkForUpdateNow() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = AppLocalizations.of(context)!;
+    final service = context.read<UpdateService>();
+    // Persist the toggles so the service sees the current configuration.
+    await _saveSettings();
+    final info = await service.checkForUpdate(manual: true);
+    if (!mounted) return;
+    if (info == null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.autoUpdateUpToDate)),
+      );
+    }
+    // If an update is found, the service shows the prompt via onUpdateAvailable.
+  }
+
   Widget _buildSectionHeader(String title) {
     return Text(
       title,

@@ -187,6 +187,27 @@
   "keepAppRunning": "Keep App Running",
   "keepAppRunningSubtitle": "Prevent app from being stopped on low memory",
   "notificationPermissionRequired": "Notification permission is required for Keep App Running",
+
+  "autoUpdateTitle": "Automatic updates",
+  "autoUpdateSubtitle": "Check GitHub for new versions and install them",
+  "autoUpdateFdroidNote": "Only for installs from GitHub. If you installed via F-Droid, leave this off and update through F-Droid.",
+  "autoUpdateSilentTitle": "Install without confirmation",
+  "autoUpdateSilentSubtitle": "Device Owner detected: updates can be installed silently in the background.",
+  "autoUpdatePromptNote": "When an update is available, you'll be asked before it is installed.",
+  "autoUpdateCheckNow": "Check now",
+  "autoUpdateUpToDate": "You're up to date.",
+  "updateAvailableTitle": "Update available",
+  "updateAvailableMessage": "Version {version} is available. Download and install it now?",
+  "@updateAvailableMessage": {
+    "placeholders": {
+      "version": {
+        "type": "String"
+      }
+    }
+  },
+  "updateDownloading": "Downloading…",
+  "updateSkip": "Skip",
+  "updateDownloadInstall": "Download & install",
   
   "keepAliveDialogTitle": "Keep App Running",
   "keepAliveWhatDoes": "What does this do?",

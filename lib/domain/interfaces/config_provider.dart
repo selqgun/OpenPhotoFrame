@@ -36,7 +36,20 @@ abstract class ConfigProvider extends ChangeNotifier {
   
   bool get keepAliveEnabled; // Keep app running with foreground service (Android only)
   set keepAliveEnabled(bool value);
-  
+
+  // Auto-update settings (GitHub releases; opt-in, not for Play Store)
+  bool get autoUpdateEnabled; // Periodically check GitHub for new releases
+  set autoUpdateEnabled(bool value);
+
+  bool get autoUpdateSilent; // Install silently without prompt (requires Device Owner)
+  set autoUpdateSilent(bool value);
+
+  String? get autoUpdateSkippedVersion; // Version the user chose to skip
+  set autoUpdateSkippedVersion(String? value);
+
+  DateTime? get autoUpdateLastCheck; // Timestamp of last update check
+  set autoUpdateLastCheck(DateTime? value);
+
   // Clock display settings
   bool get showClock; // Show clock overlay
   set showClock(bool value);

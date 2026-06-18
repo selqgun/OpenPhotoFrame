@@ -308,12 +308,57 @@ class JsonConfigService extends ConfigProvider {
   
   @override
   bool get keepAliveEnabled => _config['keep_alive_enabled'] ?? false;
-  
+
   @override
   set keepAliveEnabled(bool value) {
     _config['keep_alive_enabled'] = value;
   }
-  
+
+  // Auto-update settings
+  @override
+  bool get autoUpdateEnabled => _config['auto_update_enabled'] ?? false;
+
+  @override
+  set autoUpdateEnabled(bool value) {
+    _config['auto_update_enabled'] = value;
+  }
+
+  @override
+  bool get autoUpdateSilent => _config['auto_update_silent'] ?? false;
+
+  @override
+  set autoUpdateSilent(bool value) {
+    _config['auto_update_silent'] = value;
+  }
+
+  @override
+  String? get autoUpdateSkippedVersion => _config['auto_update_skipped_version'];
+
+  @override
+  set autoUpdateSkippedVersion(String? value) {
+    if (value == null) {
+      _config.remove('auto_update_skipped_version');
+    } else {
+      _config['auto_update_skipped_version'] = value;
+    }
+  }
+
+  @override
+  DateTime? get autoUpdateLastCheck {
+    final timestamp = _config['auto_update_last_check'];
+    if (timestamp == null) return null;
+    return DateTime.tryParse(timestamp);
+  }
+
+  @override
+  set autoUpdateLastCheck(DateTime? value) {
+    if (value == null) {
+      _config.remove('auto_update_last_check');
+    } else {
+      _config['auto_update_last_check'] = value.toIso8601String();
+    }
+  }
+
   // Clock display settings
   @override
   bool get showClock => _config['show_clock'] ?? true;

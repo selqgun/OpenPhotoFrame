@@ -384,6 +384,51 @@ class AppLocalizationsDe extends AppLocalizations {
       'Benachrichtigungs-Berechtigung wird für \'App am Laufen halten\' benötigt';
 
   @override
+  String get autoUpdateTitle => 'Automatische Updates';
+
+  @override
+  String get autoUpdateSubtitle =>
+      'Auf GitHub nach neuen Versionen suchen und installieren';
+
+  @override
+  String get autoUpdateFdroidNote =>
+      'Nur für Installationen über GitHub. Wenn du die App über F-Droid installiert hast, lass dies aus und aktualisiere über F-Droid.';
+
+  @override
+  String get autoUpdateSilentTitle => 'Ohne Rückfrage installieren';
+
+  @override
+  String get autoUpdateSilentSubtitle =>
+      'Device Owner erkannt: Updates können lautlos im Hintergrund installiert werden.';
+
+  @override
+  String get autoUpdatePromptNote =>
+      'Wenn ein Update verfügbar ist, wirst du vor der Installation gefragt.';
+
+  @override
+  String get autoUpdateCheckNow => 'Jetzt prüfen';
+
+  @override
+  String get autoUpdateUpToDate => 'Du bist auf dem neuesten Stand.';
+
+  @override
+  String get updateAvailableTitle => 'Update verfügbar';
+
+  @override
+  String updateAvailableMessage(String version) {
+    return 'Version $version ist verfügbar. Jetzt herunterladen und installieren?';
+  }
+
+  @override
+  String get updateDownloading => 'Wird heruntergeladen…';
+
+  @override
+  String get updateSkip => 'Überspringen';
+
+  @override
+  String get updateDownloadInstall => 'Herunterladen & installieren';
+
+  @override
   String get keepAliveDialogTitle => 'App am Laufen halten';
 
   @override
