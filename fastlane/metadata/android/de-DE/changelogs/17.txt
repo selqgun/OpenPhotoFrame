@@ -1,0 +1,2 @@
+Verbesserungen:
+• Automatische Updates prüfen jetzt auch beim Aufwachen der App, damit neue Versionen zuverlässiger ankommen

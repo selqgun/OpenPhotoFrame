@@ -1,0 +1,2 @@
+Improvements:
+• Automatic updates now also check when the app wakes up, so new versions arrive more reliably
