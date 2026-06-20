@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:webdav_client/webdav_client.dart' as webdav;
 
 class NextcloudPublicShare {
@@ -65,17 +67,20 @@ typedef WebDavRemoteClientFactory = WebDavRemoteClient Function({
   required String webDavUrl,
   required String user,
   required String password,
+  bool allowInvalidCertificate,
 });
 
 WebDavRemoteClient createWebDavRemoteClientImpl({
   required String webDavUrl,
   required String user,
   required String password,
+  bool allowInvalidCertificate = false,
 }) {
   return WebDavRemoteClientImpl(
     webDavUrl: webDavUrl,
     user: user,
     password: password,
+    allowInvalidCertificate: allowInvalidCertificate,
   );
 }
 
@@ -86,12 +91,22 @@ class WebDavRemoteClientImpl implements WebDavRemoteClient {
     required String webDavUrl,
     required String user,
     required String password,
+    bool allowInvalidCertificate = false,
   }) : _client = webdav.newClient(
           webDavUrl,
           user: user,
           password: password,
           debug: false,
-        );
+        ) {
+    if (allowInvalidCertificate) {
+      // Opt-in: trust self-signed/invalid TLS certs for this WebDAV server.
+      // Scoped to this client only; the GitHub updater stays strict.
+      _client.c.httpClientAdapter = IOHttpClientAdapter(
+        createHttpClient: () => HttpClient()
+          ..badCertificateCallback = (cert, host, port) => true,
+      );
+    }
+  }
 
   final webdav.Client _client;
 

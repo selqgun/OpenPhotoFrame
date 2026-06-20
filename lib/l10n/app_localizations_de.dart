@@ -176,6 +176,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get webdavPassword => 'Passwort';
 
   @override
+  String get webdavAllowInvalidCertificate =>
+      'Ungültiges Zertifikat akzeptieren';
+
+  @override
+  String get webdavAllowInvalidCertificateWarning =>
+      'Unsicher: nur für selbstsignierte Zertifikate in vertrauenswürdigen Netzwerken.';
+
+  @override
   String get testConnection => 'Verbindung testen';
 
   @override

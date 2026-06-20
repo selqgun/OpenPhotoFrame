@@ -332,6 +332,7 @@ class WebDavSyncService implements SyncProvider {
         webDavUrl: target.webDavUrl,
         user: target.user,
         password: target.password,
+        allowInvalidCertificate: config.allowInvalidCertificate,
       );
 
       // Try to read root directory - this validates the connection
@@ -363,6 +364,7 @@ class WebDavSyncService implements SyncProvider {
         webDavUrl: target.webDavUrl,
         user: target.user,
         password: target.password,
+        allowInvalidCertificate: config.allowInvalidCertificate,
       );
 
       final folders = await _collectRemoteFolders(
@@ -388,6 +390,7 @@ class WebDavSyncService implements SyncProvider {
       webDavUrl: webDavUrl,
       user: user,
       password: password,
+      allowInvalidCertificate: _sourceConfig.allowInvalidCertificate,
     );
 
     try {

@@ -410,6 +410,18 @@ abstract class AppLocalizations {
   /// **'Password'**
   String get webdavPassword;
 
+  /// No description provided for @webdavAllowInvalidCertificate.
+  ///
+  /// In en, this message translates to:
+  /// **'Accept invalid certificate'**
+  String get webdavAllowInvalidCertificate;
+
+  /// No description provided for @webdavAllowInvalidCertificateWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'Insecure: only for self-signed certificates on trusted networks.'**
+  String get webdavAllowInvalidCertificateWarning;
+
   /// No description provided for @testConnection.
   ///
   /// In en, this message translates to:

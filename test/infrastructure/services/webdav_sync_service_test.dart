@@ -144,6 +144,7 @@ void main() {
           required String webDavUrl,
           required String user,
           required String password,
+          bool allowInvalidCertificate = false,
         }) {
           return FakeWebDavRemoteClient();
         },
@@ -173,6 +174,7 @@ void main() {
           required String webDavUrl,
           required String user,
           required String password,
+          bool allowInvalidCertificate = false,
         }) {
           expect(webDavUrl, 'https://cloud.example.com/public.php/webdav');
           expect(user, 'abc123');
@@ -217,6 +219,7 @@ void main() {
           required String webDavUrl,
           required String user,
           required String password,
+          bool allowInvalidCertificate = false,
         }) => client,
       );
 
@@ -263,6 +266,7 @@ void main() {
           required String webDavUrl,
           required String user,
           required String password,
+          bool allowInvalidCertificate = false,
         }) => client,
       );
 
@@ -313,6 +317,7 @@ void main() {
             required String webDavUrl,
             required String user,
             required String password,
+            bool allowInvalidCertificate = false,
           }) => client,
         );
 
@@ -384,6 +389,7 @@ void main() {
           required String webDavUrl,
           required String user,
           required String password,
+          bool allowInvalidCertificate = false,
         }) => client,
         sourceConfig: const WebDavSourceConfig(
           url: 'https://cloud.example.com/s/abc123',
@@ -435,6 +441,7 @@ void main() {
           required String webDavUrl,
           required String user,
           required String password,
+          bool allowInvalidCertificate = false,
         }) => client,
       );
 

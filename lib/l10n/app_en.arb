@@ -72,6 +72,8 @@
   "webdavUrlHint": "https://cloud.example.com/remote.php/dav/files/user/",
   "webdavUsername": "Username",
   "webdavPassword": "Password",
+  "webdavAllowInvalidCertificate": "Accept invalid certificate",
+  "webdavAllowInvalidCertificateWarning": "Insecure: only for self-signed certificates on trusted networks.",
   "testConnection": "Test Connection",
   "testing": "Testing...",
   "connectionSuccessful": "Connection successful!",

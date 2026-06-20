@@ -72,6 +72,8 @@
   "webdavUrlHint": "https://cloud.example.com/remote.php/dav/files/user/",
   "webdavUsername": "Benutzername",
   "webdavPassword": "Passwort",
+  "webdavAllowInvalidCertificate": "Ungültiges Zertifikat akzeptieren",
+  "webdavAllowInvalidCertificateWarning": "Unsicher: nur für selbstsignierte Zertifikate in vertrauenswürdigen Netzwerken.",
   "testConnection": "Verbindung testen",
   "testing": "Teste...",
   "connectionSuccessful": "Verbindung erfolgreich!",

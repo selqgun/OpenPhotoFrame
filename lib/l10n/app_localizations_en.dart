@@ -174,6 +174,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get webdavPassword => 'Password';
 
   @override
+  String get webdavAllowInvalidCertificate => 'Accept invalid certificate';
+
+  @override
+  String get webdavAllowInvalidCertificateWarning =>
+      'Insecure: only for self-signed certificates on trusted networks.';
+
+  @override
   String get testConnection => 'Test Connection';
 
   @override

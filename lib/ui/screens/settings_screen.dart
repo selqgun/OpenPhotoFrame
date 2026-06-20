@@ -51,6 +51,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late WebDavAuthMode _webdavAuthMode;
   late TextEditingController _webdavUserController;
   late TextEditingController _webdavPasswordController;
+  late bool _webdavAllowInvalidCertificate;
   late int _syncIntervalMinutes;
   late bool _deleteOrphanedFiles;
   late bool _autostartOnBoot;
@@ -190,6 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _webdavPasswordController = TextEditingController(
       text: nextcloudConfig.password,
     );
+    _webdavAllowInvalidCertificate = nextcloudConfig.allowInvalidCertificate;
     _nextcloudFolderSyncMode = nextcloudConfig.folderSyncMode;
     _selectedNextcloudFolders = {...nextcloudConfig.normalizedSelectedFolders};
     // Restore the cached folder tree so the picker renders offline (no connection).
@@ -1185,6 +1187,24 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               },
             ),
           ],
+          const SizedBox(height: 4),
+          CheckboxListTile(
+            contentPadding: EdgeInsets.zero,
+            controlAffinity: ListTileControlAffinity.leading,
+            value: _webdavAllowInvalidCertificate,
+            title: Text(localizations.webdavAllowInvalidCertificate),
+            subtitle: Text(
+              localizations.webdavAllowInvalidCertificateWarning,
+              style: const TextStyle(fontSize: 12, color: Colors.orange),
+            ),
+            onChanged: (value) {
+              setState(() {
+                _webdavAllowInvalidCertificate = value ?? false;
+                _connectionTestResult = null;
+                _connectionTestSuccess = null;
+              });
+            },
+          ),
           const SizedBox(height: 8),
           OutlinedButton.icon(
             onPressed: _isTestingConnection ? null : _testConnection,
@@ -1505,6 +1525,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       authMode: _webdavAuthMode,
       username: isUserPassword ? username : '',
       password: isUserPassword ? password : '',
+      allowInvalidCertificate: _webdavAllowInvalidCertificate,
       folderSyncMode: _nextcloudFolderSyncMode,
       selectedFolders: _selectedNextcloudFolders.toList()..sort(),
       cachedFolders: _availableNextcloudFolders
@@ -1529,6 +1550,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         left.authMode != right.authMode ||
         left.username != right.username ||
         left.password != right.password ||
+        left.allowInvalidCertificate != right.allowInvalidCertificate ||
         left.folderSyncMode != right.folderSyncMode) {
       return false;
     }

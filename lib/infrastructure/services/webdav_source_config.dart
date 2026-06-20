@@ -48,6 +48,7 @@ class WebDavSourceConfig {
     this.authMode = WebDavAuthMode.publicShare,
     this.username = '',
     this.password = '',
+    this.allowInvalidCertificate = false,
     this.folderSyncMode = WebDavFolderSyncMode.all,
     this.selectedFolders = const <String>[],
     this.cachedFolders = const <CachedWebDavFolder>[],
@@ -57,6 +58,10 @@ class WebDavSourceConfig {
   final WebDavAuthMode authMode;
   final String username;
   final String password;
+
+  /// Accept self-signed / otherwise invalid TLS certificates for this WebDAV
+  /// server. Opt-in, for self-hosted servers on trusted networks.
+  final bool allowInvalidCertificate;
   final WebDavFolderSyncMode folderSyncMode;
   final List<String> selectedFolders;
 
@@ -83,6 +88,7 @@ class WebDavSourceConfig {
           : WebDavAuthMode.publicShare,
       username: (config['username'] as String? ?? '').trim(),
       password: config['password'] as String? ?? '',
+      allowInvalidCertificate: config['allow_invalid_certificate'] as bool? ?? false,
       folderSyncMode: (config['folder_sync_mode'] as String?) == 'selected'
           ? WebDavFolderSyncMode.selectedFolders
           : WebDavFolderSyncMode.all,
@@ -147,6 +153,7 @@ class WebDavSourceConfig {
     WebDavAuthMode? authMode,
     String? username,
     String? password,
+    bool? allowInvalidCertificate,
     WebDavFolderSyncMode? folderSyncMode,
     List<String>? selectedFolders,
     List<CachedWebDavFolder>? cachedFolders,
@@ -156,6 +163,8 @@ class WebDavSourceConfig {
       authMode: authMode ?? this.authMode,
       username: username ?? this.username,
       password: password ?? this.password,
+      allowInvalidCertificate:
+          allowInvalidCertificate ?? this.allowInvalidCertificate,
       folderSyncMode: folderSyncMode ?? this.folderSyncMode,
       selectedFolders: selectedFolders ?? this.selectedFolders,
       cachedFolders: cachedFolders ?? this.cachedFolders,
@@ -171,6 +180,7 @@ class WebDavSourceConfig {
       },
       'username': username,
       'password': password,
+      'allow_invalid_certificate': allowInvalidCertificate,
       'folder_sync_mode': switch (folderSyncMode) {
         WebDavFolderSyncMode.all => 'all',
         WebDavFolderSyncMode.selectedFolders => 'selected',
