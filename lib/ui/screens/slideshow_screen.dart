@@ -82,6 +82,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
   
   // Current photo location name (from geocoding)
   String? _currentLocationName;
+  String? _currentLocationError;
 
   @override
   void initState() {
@@ -514,7 +515,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     if (photo.isImage) {
       _logPhotoMetadata(photo);
     } else if (mounted) {
-      setState(() => _currentLocationName = null);
+      setState(() {
+        _currentLocationName = null;
+        _currentLocationError = null;
+      });
     }
 
     setState(() {
@@ -543,7 +547,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     
     // Reset location name for new photo
     if (mounted) {
-      setState(() => _currentLocationName = null);
+      setState(() {
+        _currentLocationName = null;
+        _currentLocationError = null;
+      });
     }
     
     // Load EXIF data lazily if not already loaded
@@ -578,14 +585,21 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
       
       // Reverse geocode only if enabled in settings
       if (config.geocodingEnabled) {
-        _geocodingService.getLocationName(photo.latitude!, photo.longitude!).then((location) {
-          if (location != null) {
-            _log.info('Location: $location');
-            // Update UI with location name
-            if (mounted && _currentPhoto == photo) {
-              setState(() => _currentLocationName = location);
-            }
+        _geocodingService.getLocationName(photo.latitude!, photo.longitude!).then((result) {
+          if (!mounted || _currentPhoto != photo) {
+            return;
           }
+
+          if (result.hasLocationName) {
+            _log.info('Location: ${result.locationName}');
+          } else if (result.error != null) {
+            _log.warning(result.error!);
+          }
+
+          setState(() {
+            _currentLocationName = result.locationName;
+            _currentLocationError = result.error;
+          });
         });
       }
     }
@@ -757,6 +771,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
               position: config.photoInfoPosition,
               size: config.photoInfoSize,
               locationName: config.geocodingEnabled ? _currentLocationName : null,
+              locationError: config.geocodingEnabled ? _currentLocationError : null,
               useScriptFont: config.useScriptFontForMetadata,
             ),
 

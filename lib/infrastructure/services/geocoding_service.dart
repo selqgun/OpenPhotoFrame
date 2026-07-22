@@ -3,6 +3,15 @@ import 'package:http/http.dart' as http;
 import 'package:logging/logging.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+class GeocodingResult {
+  final String? locationName;
+  final String? error;
+
+  const GeocodingResult({this.locationName, this.error});
+
+  bool get hasLocationName => locationName != null && locationName!.isNotEmpty;
+}
+
 /// Service for reverse geocoding (coordinates → place name)
 /// Uses OpenStreetMap Nominatim API (free, no API key required)
 /// Caches results persistently with automatic cleanup of old entries.
@@ -65,9 +74,9 @@ class GeocodingService {
     _log.info('Geocoding cache loaded: $loaded entries, $expired expired entries removed');
   }
   
-  /// Reverse geocode coordinates to a place name
-  /// Returns format: "City, State, Country" or null if failed
-  Future<String?> getLocationName(double latitude, double longitude) async {
+  /// Reverse geocode coordinates to a place name.
+  /// Returns a structured result so callers can distinguish failures from empty results.
+  Future<GeocodingResult> getLocationName(double latitude, double longitude) async {
     // Ensure initialized
     if (!_initialized) await initialize();
     
@@ -76,7 +85,7 @@ class GeocodingService {
     
     // Check cache first
     if (_cache.containsKey(cacheKey)) {
-      return _cache[cacheKey];
+      return GeocodingResult(locationName: _cache[cacheKey]);
     }
     
     try {
@@ -95,9 +104,10 @@ class GeocodingService {
       }).timeout(const Duration(seconds: 5));
       
       if (response.statusCode != 200) {
-        _log.warning('Geocoding failed: HTTP ${response.statusCode}');
+        final error = 'Geocoding failed: HTTP ${response.statusCode}';
+        _log.warning(error);
         // Don't cache HTTP errors - might be temporary
-        return null;
+        return GeocodingResult(error: error);
       }
       
       final json = jsonDecode(response.body) as Map<String, dynamic>;
@@ -105,7 +115,7 @@ class GeocodingService {
       
       if (address == null) {
         await _cacheResult(cacheKey, null);
-        return null;
+        return const GeocodingResult();
       }
       
       // Build location string: City, State, Country
@@ -130,13 +140,14 @@ class GeocodingService {
       final result = parts.isNotEmpty ? parts.join(', ') : null;
       await _cacheResult(cacheKey, result);
       
-      _log.fine('Geocoded ($latitude, $longitude) → $result');
-      return result;
+      _log.fine('Geocoded ($latitude, $longitude) -> $result');
+      return GeocodingResult(locationName: result);
       
     } catch (e) {
+      final error = 'Geocoding error: $e';
       _log.warning('Geocoding error for ($latitude, $longitude): $e');
       // Don't cache network errors - might be temporary
-      return null;
+      return GeocodingResult(error: error);
     }
   }
   

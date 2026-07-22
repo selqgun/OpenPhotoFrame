@@ -159,6 +159,7 @@ class OpenPhotoFrameApp extends StatelessWidget {
       child: MaterialApp(
         navigatorKey: appNavigatorKey,
         title: 'OpenPhotoFrame',
+        debugShowCheckedModeBanner: false,
         localizationsDelegates: const [
           AppLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,

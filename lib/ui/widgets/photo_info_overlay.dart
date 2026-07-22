@@ -9,6 +9,7 @@ class PhotoInfoOverlay extends StatelessWidget {
   final String position; // 'bottomRight', 'bottomLeft', 'topRight', 'topLeft'
   final String size; // 'small', 'medium', 'large'
   final String? locationName; // Resolved location name from geocoding
+  final String? locationError; // Error returned by geocoding service
   final bool useScriptFont; // Use Rouge Script font for elegant handwritten style
 
   const PhotoInfoOverlay({
@@ -17,6 +18,7 @@ class PhotoInfoOverlay extends StatelessWidget {
     required this.position,
     this.size = 'small',
     this.locationName,
+    this.locationError,
     this.useScriptFont = false,
   });
 
@@ -80,9 +82,17 @@ class PhotoInfoOverlay extends StatelessWidget {
       infoLines.add(_formatDate(photo.captureDate!));
     }
     
-    // Add location if available
+    // Prefer reverse-geocoded place names, otherwise fall back to coordinates.
     if (locationName != null && locationName!.isNotEmpty) {
       infoLines.add(locationName!);
+    } else if (photo.hasLocation) {
+      infoLines.add(
+        '${photo.latitude!.toStringAsFixed(4)}, ${photo.longitude!.toStringAsFixed(4)}',
+      );
+    }
+
+    if (locationError != null && locationError!.isNotEmpty) {
+      infoLines.add('Location service error: $locationError');
     }
     
     if (infoLines.isEmpty) {
