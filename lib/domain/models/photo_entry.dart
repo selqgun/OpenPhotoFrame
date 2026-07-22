@@ -1,10 +1,16 @@
 import 'dart:io';
 
+enum MediaType {
+  image,
+  video,
+}
+
 class PhotoEntry {
   final File file;
   /// File modification date - used for shuffle algorithm
   final DateTime date;
   final int sizeBytes;
+  final MediaType mediaType;
   
   // EXIF metadata - loaded lazily when photo is displayed
   // null = not yet loaded, use _exifLoaded to check if loading was attempted
@@ -21,7 +27,11 @@ class PhotoEntry {
     required this.file,
     required this.date,
     required this.sizeBytes,
+    this.mediaType = MediaType.image,
   });
+
+  bool get isImage => mediaType == MediaType.image;
+  bool get isVideo => mediaType == MediaType.video;
 
   /// Returns true if EXIF data has been loaded (or attempted to load)
   bool get exifLoaded => _exifLoaded;
@@ -50,5 +60,5 @@ class PhotoEntry {
   }
 
   @override
-  String toString() => 'PhotoEntry(path: ${file.path}, date: $date, captureDate: $_captureDate, location: ${hasLocation ? "($_latitude, $_longitude)" : "none"})';
+  String toString() => 'PhotoEntry(path: ${file.path}, mediaType: $mediaType, date: $date, captureDate: $_captureDate, location: ${hasLocation ? "($_latitude, $_longitude)" : "none"})';
 }

@@ -25,7 +25,7 @@ import 'package:permission_handler/permission_handler.dart';
 const PermissionRequestOption _devicePhotoPermissionRequest =
     PermissionRequestOption(
       androidPermission: AndroidPermission(
-        type: RequestType.image,
+        type: RequestType.common,
         mediaLocation: false,
       ),
     );
@@ -991,7 +991,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         return;
       }
       
-      final albums = await PhotoManager.getAssetPathList(type: RequestType.image);
+      final albums = await PhotoManager.getAssetPathList(type: RequestType.common);
       
       // Load current selection from config
       final photoRepo = context.read<PhotoRepository>();
@@ -1084,7 +1084,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   Future<void> _pickFolder() async {
     try {
       String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: 'Select Photo Folder',
+        dialogTitle: AppLocalizations.of(context)!.selectPhotoFolder,
       );
       
       if (selectedDirectory != null) {

@@ -12,7 +12,7 @@ import '../../domain/models/photo_entry.dart';
 const PermissionRequestOption _devicePhotoPermissionRequest =
     PermissionRequestOption(
       androidPermission: AndroidPermission(
-        type: RequestType.image,
+        type: RequestType.common,
         mediaLocation: false,
       ),
     );
@@ -155,7 +155,7 @@ class HybridPhotoRepository implements PhotoRepository {
       final newPhotos = <PhotoEntry>[];
 
       for (var file in files) {
-        if (_isImage(file.path) && !file.path.endsWith('.part')) {
+        if (_isSupportedMedia(file.path) && !file.path.endsWith('.part')) {
           // Preserve existing PhotoEntry instances to maintain runtime state
           final existingIndex = _photos.indexWhere((p) => p.file.path == file.path);
 
@@ -168,6 +168,7 @@ class HybridPhotoRepository implements PhotoRepository {
               file: file,
               date: stat.modified,  // File date for shuffle algorithm
               sizeBytes: stat.size,
+              mediaType: _isVideo(file.path) ? MediaType.video : MediaType.image,
             ));
           }
         }
@@ -216,12 +217,15 @@ class HybridPhotoRepository implements PhotoRepository {
       _selectedAlbumId = sourceConfig['albumId'] as String?;
       _log.fine("Loaded album selection from config: $_selectedAlbumId");
       
-      // Get the selected album or use all photos
+      // Get the selected album or use all media
       List<AssetEntity> assets;
       
       // Common filter options for all album queries
       final filterOption = FilterOptionGroup(
         imageOption: const FilterOption(
+          sizeConstraint: SizeConstraint(ignoreSize: true),
+        ),
+        videoOption: const FilterOption(
           sizeConstraint: SizeConstraint(ignoreSize: true),
         ),
         orders: [const OrderOption(type: OrderOptionType.createDate, asc: false)],
@@ -230,7 +234,7 @@ class HybridPhotoRepository implements PhotoRepository {
       if (_selectedAlbumId != null) {
         // Get specific album - must use same filterOption for proper SQL generation
         final albums = await PhotoManager.getAssetPathList(
-          type: RequestType.image,
+          type: RequestType.common,
           filterOption: filterOption,
         );
         _log.fine("Available albums: ${albums.map((a) => '${a.name}(${a.id})').join(', ')}");
@@ -258,12 +262,12 @@ class HybridPhotoRepository implements PhotoRepository {
             return;
           }
         } else {
-          // Album not found - fall through to get all photos
+          // Album not found - fall through to get all media
           _selectedAlbumId = null;
-          assets = await _getAllPhotos();
+          assets = await _getAllMedia();
         }
       } else {
-        assets = await _getAllPhotos();
+        assets = await _getAllMedia();
       }
       
       _log.fine("Found ${assets.length} assets in MediaStore");
@@ -291,13 +295,16 @@ class HybridPhotoRepository implements PhotoRepository {
             file: file,
             date: asset.modifiedDateTime,  // File date for shuffle algorithm
             sizeBytes: asset.width * asset.height,  // Approximate size from dimensions
+            mediaType: asset.type == AssetType.video ? MediaType.video : MediaType.image,
           );
-          // Set EXIF data from MediaStore (already available, no need for lazy loading)
-          entry.setExifMetadata(
-            captureDate: asset.createDateTime,
-            latitude: hasLocation ? latLng.latitude : null,
-            longitude: hasLocation ? latLng.longitude : null,
-          );
+          if (entry.isImage) {
+            // Image metadata is already available from MediaStore.
+            entry.setExifMetadata(
+              captureDate: asset.createDateTime,
+              latitude: hasLocation ? latLng.latitude : null,
+              longitude: hasLocation ? latLng.longitude : null,
+            );
+          }
           newPhotos.add(entry);
         }
       }
@@ -311,12 +318,15 @@ class HybridPhotoRepository implements PhotoRepository {
     }
   }
   
-  /// Helper to get all photos from MediaStore
-  Future<List<AssetEntity>> _getAllPhotos() async {
+  /// Helper to get all media from MediaStore.
+  Future<List<AssetEntity>> _getAllMedia() async {
     final albums = await PhotoManager.getAssetPathList(
-      type: RequestType.image,
+      type: RequestType.common,
       filterOption: FilterOptionGroup(
         imageOption: const FilterOption(
+          sizeConstraint: SizeConstraint(ignoreSize: true),
+        ),
+        videoOption: const FilterOption(
           sizeConstraint: SizeConstraint(ignoreSize: true),
         ),
         orders: [const OrderOption(type: OrderOptionType.createDate, asc: false)],
@@ -324,14 +334,14 @@ class HybridPhotoRepository implements PhotoRepository {
     );
     
     if (albums.isEmpty) {
-      _log.info("No photo albums found");
+      _log.info("No media albums found");
       return [];
     }
     
-    // Use "Recent" or first album (contains all photos)
-    final allPhotosAlbum = albums.first;
-    final count = await allPhotosAlbum.assetCountAsync;
-    return allPhotosAlbum.getAssetListRange(start: 0, end: count);
+    // Use "Recent" or first album (contains all media)
+    final allMediaAlbum = albums.first;
+    final count = await allMediaAlbum.assetCountAsync;
+    return allMediaAlbum.getAssetListRange(start: 0, end: count);
   }
   
   /// Set the album to scan (for Device Photos mode)
@@ -350,7 +360,7 @@ class HybridPhotoRepository implements PhotoRepository {
     );
     if (!permission.hasAccess) return [];
     
-    return PhotoManager.getAssetPathList(type: RequestType.image);
+    return PhotoManager.getAssetPathList(type: RequestType.common);
   }
 
   // ============================================================
@@ -363,6 +373,19 @@ class HybridPhotoRepository implements PhotoRepository {
            lower.endsWith('.jpeg') || 
            lower.endsWith('.png') || 
            lower.endsWith('.webp');
+  }
+
+  bool _isVideo(String path) {
+    final lower = path.toLowerCase();
+    return lower.endsWith('.mp4') ||
+           lower.endsWith('.webm') ||
+           lower.endsWith('.mkv') ||
+           lower.endsWith('.mov') ||
+           lower.endsWith('.m4v');
+  }
+
+  bool _isSupportedMedia(String path) {
+    return _isImage(path) || _isVideo(path);
   }
 
   @override

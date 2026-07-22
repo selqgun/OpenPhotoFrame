@@ -109,7 +109,7 @@ class FileSystemPhotoRepository implements PhotoRepository {
       final newPhotos = <PhotoEntry>[];
 
       for (var file in files) {
-        if (_isImage(file.path) && !file.path.endsWith('.part')) {
+        if (_isSupportedMedia(file.path) && !file.path.endsWith('.part')) {
           // Check if we already have this file in memory to preserve runtime state
           // (lastShown, weight) across rescans
           final existingIndex = _photos.indexWhere((p) => p.file.path == file.path);
@@ -125,6 +125,7 @@ class FileSystemPhotoRepository implements PhotoRepository {
               file: file,
               date: stat.modified,  // File date for shuffle algorithm
               sizeBytes: stat.size,
+              mediaType: _mediaTypeForPath(file.path),
             ));
           }
         }
@@ -139,12 +140,29 @@ class FileSystemPhotoRepository implements PhotoRepository {
     }
   }
 
+  bool _isSupportedMedia(String path) {
+    return _isImage(path) || _isVideo(path);
+  }
+
   bool _isImage(String path) {
     final lower = path.toLowerCase();
     return lower.endsWith('.jpg') || 
            lower.endsWith('.jpeg') || 
            lower.endsWith('.png') || 
            lower.endsWith('.webp');
+  }
+
+  bool _isVideo(String path) {
+    final lower = path.toLowerCase();
+    return lower.endsWith('.mp4') ||
+           lower.endsWith('.webm') ||
+           lower.endsWith('.mkv') ||
+           lower.endsWith('.mov') ||
+           lower.endsWith('.m4v');
+  }
+
+  MediaType _mediaTypeForPath(String path) {
+    return _isVideo(path) ? MediaType.video : MediaType.image;
   }
 
   @override

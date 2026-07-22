@@ -16,6 +16,7 @@ import '../../infrastructure/services/geocoding_service.dart';
 import '../../infrastructure/services/keep_alive_service.dart';
 import '../../domain/models/photo_entry.dart';
 import '../widgets/photo_slide.dart';
+import '../widgets/video_slide.dart';
 import '../widgets/clock_overlay.dart';
 import '../widgets/photo_info_overlay.dart';
 import '../../infrastructure/services/json_config_service.dart';
@@ -404,6 +405,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
   }
 
   void _startTimer() {
+    if (_currentPhoto?.isVideo == true) {
+      _timer?.cancel();
+      return;
+    }
     _timer?.cancel();
     final config = context.read<ConfigProvider>();
     final slideDuration = Duration(seconds: config.slideDurationSeconds);
@@ -464,14 +469,13 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
       _screenSize = const Size(1920, 1080);
     }
     
-    // Preload the image before starting the transition
-    // Use ResizeImage for faster decoding on slower devices
-    final imageProvider = PhotoSlide.createOptimizedProvider(photo.file, _screenSize!);
-    try {
-      await _preloadImage(imageProvider);
-    } catch (e) {
-      print('Failed to preload image: $e');
-      // Continue anyway - the image might still load
+    if (photo.isImage) {
+      final imageProvider = PhotoSlide.createOptimizedProvider(photo.file, _screenSize!);
+      try {
+        await _preloadImage(imageProvider);
+      } catch (e) {
+        print('Failed to preload image: $e');
+      }
     }
 
     // Check if this transition is still valid (not superseded by a newer one)
@@ -507,8 +511,11 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
       slideDirection: slideDirection,
     );
 
-    // Log EXIF metadata when displaying a photo
-    _logPhotoMetadata(photo);
+    if (photo.isImage) {
+      _logPhotoMetadata(photo);
+    } else if (mounted) {
+      setState(() => _currentLocationName = null);
+    }
 
     setState(() {
       _isLoading = false;
@@ -691,12 +698,22 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
         children: [
           // 1. Content Layer (Custom Stack)
           ..._slides.map((slide) {
-            final child = PhotoSlide(
-              key: ValueKey(slide.photo.file.path),
-              photo: slide.photo,
-              screenSize: _screenSize!,
-              blurBorders: config.blurBorders,
-            );
+            final child = slide.photo.isVideo
+                ? VideoSlide(
+                    key: ValueKey('video_${slide.photo.file.path}'),
+                    media: slide.photo,
+                    onPlaybackCompleted: () {
+                      if (mounted && identical(_currentPhoto, slide.photo)) {
+                        _nextSlide();
+                      }
+                    },
+                  )
+                : PhotoSlide(
+                    key: ValueKey(slide.photo.file.path),
+                    photo: slide.photo,
+                    screenSize: _screenSize!,
+                    blurBorders: config.blurBorders,
+                  );
             
             // Use slide animation for manual navigation, fade for auto-advance
             if (slide.slideDirection != null) {
@@ -733,7 +750,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
             ),
 
           // 3. Photo Info Overlay
-          if (config.showPhotoInfo && _currentPhoto != null)
+          if (config.showPhotoInfo && _currentPhoto != null && _currentPhoto!.isImage)
             PhotoInfoOverlay(
               key: ValueKey('photo_info_${_currentPhoto!.file.path}_${config.photoInfoPosition}_${config.photoInfoSize}_${config.useScriptFontForMetadata}'),
               photo: _currentPhoto!,
