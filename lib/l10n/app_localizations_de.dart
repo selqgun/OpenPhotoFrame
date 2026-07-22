@@ -76,6 +76,19 @@ class AppLocalizationsDe extends AppLocalizations {
       'Verwendet Nominatim (OpenStreetMap). Kein API-Schlüssel erforderlich.';
 
   @override
+  String get geocodingProviderLabel => 'Geocoding-Dienst';
+
+  @override
+  String get geocodingProviderAmap => 'AMap';
+
+  @override
+  String get geocodingProviderNominatim => 'OpenStreetMap';
+
+  @override
+  String get amapHint =>
+      'Verwendet AMap Reverse Geocoding. Gut für Festlandchina. Ausgabe standardmäßig auf Chinesisch.';
+
+  @override
   String get sectionPhotoSource => 'Fotoquelle';
 
   @override

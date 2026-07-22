@@ -25,6 +25,16 @@ import 'settings_screen.dart';
 final _log = Logger('SlideshowScreen');
 final _geocodingService = GeocodingService();
 
+GeocodingProvider _parseGeocodingProvider(String value) {
+  switch (value) {
+    case 'nominatim':
+      return GeocodingProvider.nominatim;
+    case 'amap':
+    default:
+      return GeocodingProvider.amap;
+  }
+}
+
 /// Convert screen orientation setting to DeviceOrientation list
 List<DeviceOrientation> _getDeviceOrientations(String orientation) {
   switch (orientation) {
@@ -585,7 +595,12 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
       
       // Reverse geocode only if enabled in settings
       if (config.geocodingEnabled) {
-        _geocodingService.getLocationName(photo.latitude!, photo.longitude!).then((result) {
+        _geocodingService.getLocationName(
+          photo.latitude!,
+          photo.longitude!,
+          provider: _parseGeocodingProvider(config.geocodingProvider),
+          apiKey: config.geocodingApiKey,
+        ).then((result) {
           if (!mounted || _currentPhoto != photo) {
             return;
           }

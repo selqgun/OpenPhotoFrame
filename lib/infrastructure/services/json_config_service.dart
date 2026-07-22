@@ -511,6 +511,22 @@ class JsonConfigService extends ConfigProvider {
   set geocodingEnabled(bool value) {
     _config['geocoding_enabled'] = value;
   }
+
+  @override
+  String get geocodingProvider => _config['geocoding_provider'] ?? 'amap';
+
+  @override
+  set geocodingProvider(String value) {
+    _config['geocoding_provider'] = value;
+  }
+
+  @override
+  String get geocodingApiKey => _config['geocoding_api_key'] ?? '';
+
+  @override
+  set geocodingApiKey(String value) {
+    _config['geocoding_api_key'] = value;
+  }
   
   // Screen orientation settings
   @override

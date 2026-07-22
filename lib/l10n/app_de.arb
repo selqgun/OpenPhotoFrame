@@ -24,6 +24,10 @@
   "useScriptFontSubtitle": "Metadaten in eleganter Handschrift anzeigen",
   "resolveLocationNames": "Ortsnamen auflösen",
   "resolveLocationNamesSubtitle": "OpenStreetMap nutzen um Ortsnamen statt Koordinaten anzuzeigen",
+  "geocodingProviderLabel": "Geocoding-Dienst",
+  "geocodingProviderAmap": "AMap",
+  "geocodingProviderNominatim": "OpenStreetMap",
+  "amapHint": "Verwendet AMap Reverse Geocoding. Gut für Festlandchina. Ausgabe standardmäßig auf Chinesisch.",
   "nominatimHint": "Verwendet Nominatim (OpenStreetMap). Kein API-Schlüssel erforderlich.",
   
   "sectionPhotoSource": "Fotoquelle",

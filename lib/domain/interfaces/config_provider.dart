@@ -105,6 +105,10 @@ abstract class ConfigProvider extends ChangeNotifier {
   // Geocoding settings
   bool get geocodingEnabled; // Enable reverse geocoding for GPS coordinates
   set geocodingEnabled(bool value);
+  String get geocodingProvider; // 'amap' or 'nominatim'
+  set geocodingProvider(String value);
+  String get geocodingApiKey; // Provider API key if required
+  set geocodingApiKey(String value);
   
   // Screen orientation settings
   // Values: 'auto', 'portraitUp', 'portraitDown', 'landscapeLeft', 'landscapeRight'

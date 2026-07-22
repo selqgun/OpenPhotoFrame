@@ -224,6 +224,30 @@ abstract class AppLocalizations {
   /// **'Uses Nominatim (OpenStreetMap). No API key required.'**
   String get nominatimHint;
 
+  /// No description provided for @geocodingProviderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Geocoding Service'**
+  String get geocodingProviderLabel;
+
+  /// No description provided for @geocodingProviderAmap.
+  ///
+  /// In en, this message translates to:
+  /// **'AMap'**
+  String get geocodingProviderAmap;
+
+  /// No description provided for @geocodingProviderNominatim.
+  ///
+  /// In en, this message translates to:
+  /// **'OpenStreetMap'**
+  String get geocodingProviderNominatim;
+
+  /// No description provided for @amapHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Uses AMap reverse geocoding. Best for mainland China. Output defaults to Chinese.'**
+  String get amapHint;
+
   /// No description provided for @sectionPhotoSource.
   ///
   /// In en, this message translates to:

@@ -70,6 +70,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late String _photoInfoPosition;
   late String _photoInfoSize;
   late bool _geocodingEnabled;
+  late String _geocodingProvider;
   late bool _useScriptFontForMetadata;
   
   // Display schedule settings
@@ -156,6 +157,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _photoInfoPosition = config.photoInfoPosition;
     _photoInfoSize = config.photoInfoSize;
     _geocodingEnabled = config.geocodingEnabled;
+    _geocodingProvider = config.geocodingProvider;
     _useScriptFontForMetadata = config.useScriptFontForMetadata;
     
     // Display schedule settings
@@ -342,6 +344,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     config.photoInfoPosition = _photoInfoPosition;
     config.photoInfoSize = _photoInfoSize;
     config.geocodingEnabled = _geocodingEnabled;
+    config.geocodingProvider = _geocodingProvider;
     config.useScriptFontForMetadata = _useScriptFontForMetadata;
     
     // Display schedule settings
@@ -508,24 +511,18 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
               },
             ),
             const SizedBox(height: 16),
-            SwitchListTile(
-              title: Text(AppLocalizations.of(context)!.resolveLocationNames),
-              subtitle: Text(AppLocalizations.of(context)!.resolveLocationNamesSubtitle),
-              secondary: const Icon(Icons.location_on),
-              value: _geocodingEnabled,
+              SwitchListTile(
+                title: Text(AppLocalizations.of(context)!.resolveLocationNames),
+                subtitle: Text(AppLocalizations.of(context)!.resolveLocationNamesSubtitle),
+                secondary: const Icon(Icons.location_on),
+                value: _geocodingEnabled,
               onChanged: (value) {
                 setState(() => _geocodingEnabled = value);
               },
-            ),
-            if (_geocodingEnabled)
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  AppLocalizations.of(context)!.nominatimHint,
-                  style: TextStyle(fontSize: 12, color: Colors.grey),
-                ),
               ),
-          ],
+              if (_geocodingEnabled)
+                _buildGeocodingSettings(),
+            ],
           
           const SizedBox(height: 24),
           const Divider(),
@@ -2384,6 +2381,44 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGeocodingSettings() {
+    final l10n = AppLocalizations.of(context)!;
+    final isAmap = _geocodingProvider == 'amap';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 8),
+          Text(l10n.geocodingProviderLabel),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: [
+              ButtonSegment(
+                value: 'amap',
+                label: Text(l10n.geocodingProviderAmap),
+              ),
+              ButtonSegment(
+                value: 'nominatim',
+                label: Text(l10n.geocodingProviderNominatim),
+              ),
+            ],
+            selected: {_geocodingProvider},
+            onSelectionChanged: (value) {
+              setState(() => _geocodingProvider = value.first);
+            },
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isAmap ? l10n.amapHint : l10n.nominatimHint,
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
           ),
         ],
       ),
