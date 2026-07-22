@@ -940,7 +940,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                   child: DropdownButtonFormField<String>(
                     value: _selectedAlbumId,
                     decoration: InputDecoration(
-                      labelText: AppLocalizations.of(context)!.photoAlbum,
+                      labelText: AppLocalizations.of(context)!.mediaAlbum,
                       isDense: true,
                       contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                     ),
@@ -1084,7 +1084,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   Future<void> _pickFolder() async {
     try {
       String? selectedDirectory = await FilePicker.platform.getDirectoryPath(
-        dialogTitle: AppLocalizations.of(context)!.selectPhotoFolder,
+        dialogTitle: AppLocalizations.of(context)!.selectMediaFolder,
       );
       
       if (selectedDirectory != null) {
