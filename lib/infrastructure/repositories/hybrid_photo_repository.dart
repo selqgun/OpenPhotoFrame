@@ -13,7 +13,7 @@ const PermissionRequestOption _devicePhotoPermissionRequest =
     PermissionRequestOption(
       androidPermission: AndroidPermission(
         type: RequestType.common,
-        mediaLocation: false,
+        mediaLocation: true,
       ),
     );
 
