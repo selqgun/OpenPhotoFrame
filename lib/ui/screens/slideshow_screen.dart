@@ -416,14 +416,13 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
   }
 
   void _startTimer() {
+    _timer?.cancel();
     if (_currentPhoto?.isVideo == true) {
-      _timer?.cancel();
       return;
     }
-    _timer?.cancel();
     final config = context.read<ConfigProvider>();
     final slideDuration = Duration(seconds: config.slideDurationSeconds);
-    _timer = Timer.periodic(slideDuration, (timer) {
+    _timer = Timer(slideDuration, () {
       _nextSlide();
     });
   }
@@ -434,6 +433,9 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     
     if (photo != null && photo.file.path != _currentPhoto?.file.path) {
       _transitionTo(photo);
+      _startTimer();
+    } else {
+      _startTimer();
     }
   }
 
@@ -729,7 +731,6 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
           ..._slides.map((slide) {
             final child = slide.photo.isVideo
                 ? VideoSlide(
-                    key: ValueKey('video_${slide.photo.file.path}'),
                     media: slide.photo,
                     onPlaybackCompleted: () {
                       if (mounted && identical(_currentPhoto, slide.photo)) {
@@ -738,11 +739,12 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
                     },
                   )
                 : PhotoSlide(
-                    key: ValueKey(slide.photo.file.path),
                     photo: slide.photo,
                     screenSize: _screenSize!,
                     blurBorders: config.blurBorders,
                   );
+            
+            final key = ValueKey(slide.photo.file.path);
             
             // Use slide animation for manual navigation, fade for auto-advance
             if (slide.slideDirection != null) {
@@ -752,6 +754,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
                   : const Offset(-1.0, 0.0); // Start from left
               
               return SlideTransition(
+                key: key,
                 position: Tween<Offset>(
                   begin: beginOffset,
                   end: Offset.zero,
@@ -764,6 +767,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
             } else {
               // Fade transition for auto-advance
               return FadeTransition(
+                key: key,
                 opacity: slide.controller,
                 child: child,
               );
