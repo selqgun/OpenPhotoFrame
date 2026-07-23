@@ -17,6 +17,8 @@ import 'infrastructure/services/json_config_service.dart';
 import 'infrastructure/services/exif_metadata_provider.dart';
 import 'infrastructure/services/webdav_source_config.dart';
 import 'infrastructure/services/webdav_sync_service.dart';
+import 'infrastructure/services/smb_source_config.dart';
+import 'infrastructure/services/smb_sync_service.dart';
 import 'infrastructure/services/noop_sync_service.dart';
 import 'infrastructure/services/photo_service.dart';
 import 'infrastructure/services/local_storage_provider.dart';
@@ -125,6 +127,16 @@ class OpenPhotoFrameApp extends StatelessWidget {
                 }
               }
 
+              if (type == 'smb') {
+                final smbConfig = SmbSourceConfig.fromMap(sourceConfig);
+                if (smbConfig.isValid) {
+                  return SmbSyncService(
+                    sourceConfig: smbConfig,
+                    storageProvider: storage,
+                  );
+                }
+              }
+
               return NoOpSyncService();
             }
 
@@ -200,3 +212,4 @@ class OpenPhotoFrameApp extends StatelessWidget {
     );
   }
 }
+

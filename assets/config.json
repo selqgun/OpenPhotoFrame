@@ -12,6 +12,17 @@
       "url": "",
       "folder_sync_mode": "all",
       "selected_folders": []
+    },
+    "smb": {
+      "host": "",
+      "port": 445,
+      "share": "",
+      "path": "",
+      "username": "",
+      "password": "",
+      "domain": "",
+      "anonymous": false,
+      "cache_size_mb": 1024
     }
   }
 }

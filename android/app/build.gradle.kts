@@ -79,6 +79,7 @@ flutter {
 }
 
 dependencies {
+    implementation("eu.agno3.jcifs:jcifs-ng:2.1.10")
     testImplementation("junit:junit:4.13.2")
 }
 
@@ -94,3 +95,4 @@ android.applicationVariants.configureEach {
         }
     }
 }
+

@@ -15,10 +15,10 @@ class MainActivity : FlutterActivity() {
     private lateinit var screenControlHandler: ScreenControlHandler
     private lateinit var keepAliveHandler: KeepAliveHandler
     private lateinit var updaterHandler: UpdaterHandler
+    private lateinit var smbHandler: SmbHandler
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Debug logging for screen size detection
         val display = windowManager.defaultDisplay
         val size = android.graphics.Point()
         display.getSize(size)
@@ -28,7 +28,6 @@ class MainActivity : FlutterActivity() {
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) {
-            // Debug logging for screen size detection
             val display = windowManager.defaultDisplay
             val size = android.graphics.Point()
             display.getSize(size)
@@ -38,15 +37,18 @@ class MainActivity : FlutterActivity() {
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
-        
+
         screenControlHandler = ScreenControlHandler(this)
         screenControlHandler.configureChannel(flutterEngine)
-        
+
         keepAliveHandler = KeepAliveHandler(this)
         keepAliveHandler.configureChannel(flutterEngine)
 
         updaterHandler = UpdaterHandler(this)
         updaterHandler.configureChannel(flutterEngine)
+
+        smbHandler = SmbHandler()
+        smbHandler.configureChannel(flutterEngine)
     }
 
     override fun onStart() {

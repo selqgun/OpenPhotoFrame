@@ -16,6 +16,8 @@ import '../../infrastructure/services/photo_service.dart';
 import '../../infrastructure/services/native_updater_service.dart';
 import '../../infrastructure/services/update_service.dart';
 import '../../infrastructure/services/webdav_source_config.dart';
+import '../../infrastructure/services/smb_source_config.dart';
+import '../../infrastructure/services/smb_native_client.dart';
 import '../../infrastructure/services/webdav_sync_service.dart';
 import '../../infrastructure/services/autostart_service.dart';
 import '../../infrastructure/services/native_screen_control_service.dart';
@@ -88,6 +90,19 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   bool _isTestingConnection = false;
   String? _connectionTestResult;
   bool? _connectionTestSuccess;
+  late TextEditingController _smbHostController;
+  late TextEditingController _smbPortController;
+  late TextEditingController _smbShareController;
+  late TextEditingController _smbPathController;
+  late TextEditingController _smbUserController;
+  late TextEditingController _smbPasswordController;
+  late TextEditingController _smbDomainController;
+  late bool _smbAnonymous;
+  late double _smbCacheSizeMb;
+  bool _isTestingSmbConnection = false;
+  String? _smbConnectionTestResult;
+  bool? _smbConnectionTestSuccess;
+  late SmbSourceConfig _originalSmbSourceConfig;
 
   late WebDavFolderSyncMode _nextcloudFolderSyncMode;
   late Set<String> _selectedNextcloudFolders;
@@ -216,9 +231,22 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         )
         .toList(growable: false);
     
+    final smbConfig = SmbSourceConfig.fromMap(
+      config.getSourceConfig('smb'),
+    );
+    _smbHostController = TextEditingController(text: smbConfig.host);
+    _smbPortController = TextEditingController(text: smbConfig.port.toString());
+    _smbShareController = TextEditingController(text: smbConfig.share);
+    _smbPathController = TextEditingController(text: smbConfig.path);
+    _smbUserController = TextEditingController(text: smbConfig.username);
+    _smbPasswordController = TextEditingController(text: smbConfig.password);
+    _smbDomainController = TextEditingController(text: smbConfig.domain);
+    _smbAnonymous = smbConfig.anonymous;
+    _smbCacheSizeMb = smbConfig.cacheSizeMb.toDouble();
     // Store original values for comparison on save
     _originalSyncType = _syncType;
     _originalWebDavSourceConfig = nextcloudConfig;
+    _originalSmbSourceConfig = smbConfig;
     
     // Load saved album selection for device_photos mode
     final devicePhotosConfig = config.getSourceConfig('device_photos');
@@ -288,6 +316,13 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _nextcloudUrlController.dispose();
     _webdavUserController.dispose();
     _webdavPasswordController.dispose();
+    _smbHostController.dispose();
+    _smbPortController.dispose();
+    _smbShareController.dispose();
+    _smbPathController.dispose();
+    _smbUserController.dispose();
+    _smbPasswordController.dispose();
+    _smbDomainController.dispose();
     super.dispose();
   }
   
@@ -309,12 +344,16 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
     final nextcloudConfigChanged =
       !_nextcloudConfigsEqual(newWebDavSourceConfig, _originalWebDavSourceConfig);
+    final newSmbSourceConfig = _buildSmbSourceConfig();
+    final smbConfigChanged =
+      !_smbConfigsEqual(newSmbSourceConfig, _originalSmbSourceConfig);
     final syncConfigChanged =
       _syncType != _originalSyncType ||
-      (_syncType == 'nextcloud_link' && nextcloudConfigChanged);
-    final newSyncSourceConfigured = syncConfigChanged && 
-        _syncType == 'nextcloud_link' && 
-        newNextcloudUrl.isNotEmpty;
+      (_syncType == 'nextcloud_link' && nextcloudConfigChanged) ||
+      (_syncType == 'smb' && smbConfigChanged);
+    final newSyncSourceConfigured = syncConfigChanged &&
+        ((_syncType == 'nextcloud_link' && newNextcloudUrl.isNotEmpty) ||
+         (_syncType == 'smb' && newSmbSourceConfig.isValid));
     
     config.slideDurationSeconds = _slideDurationSeconds;
     config.transitionDurationMs = (_transitionDurationSeconds * 1000).round();
@@ -368,6 +407,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     
     if (_syncType == 'nextcloud_link') {
       config.setSourceConfig('nextcloud_link', newWebDavSourceConfig.toMap());
+    }
+    if (_syncType == 'smb') {
+      config.setSourceConfig('smb', newSmbSourceConfig.toMap());
     }
     
     await config.save();
@@ -847,6 +889,17 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             setState(() => _syncType = value!);
           },
         ),
+        RadioListTile<String>(
+          title: const Text('SMB'),
+          subtitle: const Text('Sync photos and videos from an SMB share'),
+          value: 'smb',
+          groupValue: _syncType,
+          onChanged: (value) {
+            setState(() => _syncType = value!);
+          },
+        ),
+        if (_syncType == 'smb')
+          _buildSmbSourceEditor(),
       ],
     );
   }
@@ -1536,6 +1589,181 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
 
+  
+  SmbSourceConfig _buildSmbSourceConfig() {
+    return SmbSourceConfig(
+      host: _smbHostController.text.trim(),
+      port: int.tryParse(_smbPortController.text.trim()) ?? 445,
+      share: _smbShareController.text.trim(),
+      path: _smbPathController.text.trim(),
+      username: _smbUserController.text.trim(),
+      password: _smbPasswordController.text,
+      domain: _smbDomainController.text.trim(),
+      anonymous: _smbAnonymous,
+      cacheSizeMb: _smbCacheSizeMb.round(),
+    );
+  }
+
+  bool _smbConfigsEqual(SmbSourceConfig left, SmbSourceConfig right) {
+    return left.host == right.host &&
+        left.port == right.port &&
+        left.share == right.share &&
+        left.normalizedPath == right.normalizedPath &&
+        left.username == right.username &&
+        left.password == right.password &&
+        left.domain == right.domain &&
+        left.anonymous == right.anonymous &&
+        left.cacheSizeMb == right.cacheSizeMb;
+  }
+
+  Future<void> _testSmbConnection() async {
+    final config = _buildSmbSourceConfig();
+    setState(() {
+      _isTestingSmbConnection = true;
+      _smbConnectionTestResult = null;
+      _smbConnectionTestSuccess = null;
+    });
+
+    try {
+      await SmbNativeClient().testConnection(config.toMap());
+      if (!mounted) return;
+      setState(() {
+        _smbConnectionTestSuccess = true;
+        _smbConnectionTestResult = 'Connection successful!';
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _smbConnectionTestSuccess = false;
+        _smbConnectionTestResult = error.toString();
+      });
+    } finally {
+      if (mounted) {
+        setState(() => _isTestingSmbConnection = false);
+      }
+    }
+  }
+
+  Widget _buildSmbSourceEditor() {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 56, right: 16, bottom: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          TextField(
+            controller: _smbHostController,
+            decoration: const InputDecoration(labelText: 'SMB Host'),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _smbPortController,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(labelText: 'Port'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: TextField(
+                  controller: _smbShareController,
+                  decoration: const InputDecoration(labelText: 'Share Name'),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: _smbPathController,
+            decoration: const InputDecoration(
+              labelText: 'Directory Path',
+              hintText: 'photos/family',
+            ),
+          ),
+          const SizedBox(height: 8),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Anonymous Login'),
+            value: _smbAnonymous,
+            onChanged: (value) {
+              setState(() => _smbAnonymous = value);
+            },
+          ),
+          if (!_smbAnonymous) ...[
+            TextField(
+              controller: _smbUserController,
+              decoration: const InputDecoration(labelText: 'Username'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _smbPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(labelText: 'Password'),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _smbDomainController,
+              decoration: const InputDecoration(
+                labelText: 'Domain / Workgroup (optional)',
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.storage, size: 20),
+              const SizedBox(width: 12),
+              Expanded(child: const Text('SMB Cache Size')),
+              Text('${_smbCacheSizeMb.round()} MB'),
+            ],
+          ),
+          Slider(
+            value: _smbCacheSizeMb,
+            min: 256,
+            max: 8192,
+            divisions: 31,
+            label: '${_smbCacheSizeMb.round()} MB',
+            onChanged: (value) {
+              setState(() {
+                _smbCacheSizeMb = ((value / 256).round() * 256).toDouble();
+              });
+            },
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton.tonalIcon(
+              onPressed: _isTestingSmbConnection ? null : _testSmbConnection,
+              icon: _isTestingSmbConnection
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.wifi_find),
+              label: Text(
+                _isTestingSmbConnection ? 'Testing...' : 'Test SMB Connection',
+              ),
+            ),
+          ),
+          if (_smbConnectionTestResult != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _smbConnectionTestResult!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: _smbConnectionTestSuccess == true
+                    ? Colors.green
+                    : theme.colorScheme.error,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   bool _nextcloudConfigsEqual(
     WebDavSourceConfig left,
     WebDavSourceConfig right,
@@ -1965,25 +2193,25 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                   Positioned(
                     top: 8,
                     left: 8,
-                    child: _buildPositionButton('topLeft', '⌜'),
+                    child: _buildPositionButton('topLeft', 'TL'),
                   ),
                   // Top Right
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: _buildPositionButton('topRight', '⌝'),
+                    child: _buildPositionButton('topRight', 'TR'),
                   ),
                   // Bottom Left
                   Positioned(
                     bottom: 8,
                     left: 8,
-                    child: _buildPositionButton('bottomLeft', '⌞'),
+                    child: _buildPositionButton('bottomLeft', 'BL'),
                   ),
                   // Bottom Right
                   Positioned(
                     bottom: 8,
                     right: 8,
-                    child: _buildPositionButton('bottomRight', '⌟'),
+                    child: _buildPositionButton('bottomRight', 'BR'),
                   ),
                 ],
               ),
@@ -2367,25 +2595,25 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                   Positioned(
                     top: 8,
                     left: 8,
-                    child: _buildPhotoInfoPositionButton('topLeft', '⌜'),
+                    child: _buildPhotoInfoPositionButton('topLeft', 'TL'),
                   ),
                   // Top Right
                   Positioned(
                     top: 8,
                     right: 8,
-                    child: _buildPhotoInfoPositionButton('topRight', '⌝'),
+                    child: _buildPhotoInfoPositionButton('topRight', 'TR'),
                   ),
                   // Bottom Left
                   Positioned(
                     bottom: 8,
                     left: 8,
-                    child: _buildPhotoInfoPositionButton('bottomLeft', '⌞'),
+                    child: _buildPhotoInfoPositionButton('bottomLeft', 'BL'),
                   ),
                   // Bottom Right
                   Positioned(
                     bottom: 8,
                     right: 8,
-                    child: _buildPhotoInfoPositionButton('bottomRight', '⌟'),
+                    child: _buildPhotoInfoPositionButton('bottomRight', 'BR'),
                   ),
                 ],
               ),
@@ -2523,3 +2751,4 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
 }
+
