@@ -1,5 +1,7 @@
 package io.github.micw.openphotoframe
 
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -12,6 +14,7 @@ import jcifs.smb.SmbFile
 import java.io.File
 import java.io.FileOutputStream
 import java.util.Properties
+import java.util.concurrent.Executors
 
 class SmbHandler {
     companion object {
@@ -19,52 +22,57 @@ class SmbHandler {
         private const val CHANNEL = "io.github.micw.openphotoframe/smb"
     }
 
+    private val executor = Executors.newFixedThreadPool(4)
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     fun configureChannel(flutterEngine: FlutterEngine) {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
-            try {
-                when (call.method) {
-                    "testConnection" -> {
-                        val context = buildContext(call.arguments as Map<*, *>)
-                        val root = buildRootUrl(call.arguments as Map<*, *>)
-                        SmbFile(root, context).listFiles()
-                        result.success(true)
-                    }
-                    "listDirectory" -> {
-                        val args = call.arguments as Map<*, *>
-                        val context = buildContext(args)
-                        val path = normalizePath(args["path"] as String? ?: "")
-                        val url = buildFileUrl(args, path, true)
-                        val files = SmbFile(url, context).listFiles().orEmpty().map {
-                            mapOf(
-                                "path" to normalizePath(pathJoin(path, it.name.trimEnd('/'))),
-                                "name" to it.name.trimEnd('/'),
-                                "isDirectory" to it.isDirectory,
-                                "size" to if (it.isDirectory) null else it.length(),
-                                "modifiedAt" to java.time.Instant.ofEpochMilli(it.lastModified()).toString(),
-                            )
+            executor.execute {
+                try {
+                    when (call.method) {
+                        "testConnection" -> {
+                            val context = buildContext(call.arguments as Map<*, *>)
+                            val root = buildRootUrl(call.arguments as Map<*, *>)
+                            SmbFile(root, context).listFiles()
+                            mainHandler.post { result.success(true) }
                         }
-                        result.success(files)
-                    }
-                    "downloadFile" -> {
-                        val args = call.arguments as Map<*, *>
-                        val context = buildContext(args)
-                        val remotePath = normalizePath(args["remotePath"] as String? ?: "")
-                        val localPath = args["localPath"] as String? ?: throw IllegalArgumentException("localPath is required")
-                        val smbFile = SmbFile(buildFileUrl(args, remotePath, false), context)
-                        val localFile = File(localPath)
-                        localFile.parentFile?.mkdirs()
-                        smbFile.inputStream.use { input ->
-                            FileOutputStream(localFile).use { output ->
-                                input.copyTo(output)
+                        "listDirectory" -> {
+                            val args = call.arguments as Map<*, *>
+                            val context = buildContext(args)
+                            val path = normalizePath(args["path"] as String? ?: "")
+                            val url = buildFileUrl(args, path, true)
+                            val files = SmbFile(url, context).listFiles().orEmpty().map {
+                                mapOf(
+                                    "path" to normalizePath(pathJoin(path, it.name.trimEnd('/'))),
+                                    "name" to it.name.trimEnd('/'),
+                                    "isDirectory" to it.isDirectory,
+                                    "size" to if (it.isDirectory) null else it.length(),
+                                    "modifiedAt" to java.time.Instant.ofEpochMilli(it.lastModified()).toString(),
+                                )
                             }
+                            mainHandler.post { result.success(files) }
                         }
-                        result.success(true)
+                        "downloadFile" -> {
+                            val args = call.arguments as Map<*, *>
+                            val context = buildContext(args)
+                            val remotePath = normalizePath(args["remotePath"] as String? ?: "")
+                            val localPath = args["localPath"] as String? ?: throw IllegalArgumentException("localPath is required")
+                            val smbFile = SmbFile(buildFileUrl(args, remotePath, false), context)
+                            val localFile = File(localPath)
+                            localFile.parentFile?.mkdirs()
+                            smbFile.inputStream.use { input ->
+                                FileOutputStream(localFile).use { output ->
+                                        input.copyTo(output)
+                                }
+                            }
+                            mainHandler.post { result.success(true) }
+                        }
+                        else -> mainHandler.post { result.notImplemented() }
                     }
-                    else -> result.notImplemented()
+                } catch (e: Exception) {
+                    Log.e(TAG, "SMB call failed", e)
+                    mainHandler.post { result.error("SMB_ERROR", e.toString(), null) }
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "SMB call failed", e)
-                result.error("SMB_ERROR", e.message, null)
             }
         }
     }
@@ -122,4 +130,3 @@ class SmbHandler {
         return "$parent/$name"
     }
 }
-
