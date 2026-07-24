@@ -81,7 +81,7 @@ class SmbHandler {
 
         val anonymous = args["anonymous"] as Boolean? ?: false
         if (anonymous) {
-            return base.withGuestCredentials()
+            return base.withCredentials(NtlmPasswordAuthenticator("", "guest", ""))
         }
 
         val domain = args["domain"] as String? ?: ""
@@ -122,3 +122,4 @@ class SmbHandler {
         return "$parent/$name"
     }
 }
+
