@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - master
+      - codex/smb-source-cache-a
     tags:
       - 'v*'
   pull_request:
@@ -272,3 +273,4 @@ jobs:
               });
               console.log(`Uploaded ${apkName}`);
             }
+
