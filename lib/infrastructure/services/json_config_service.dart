@@ -271,7 +271,7 @@ class JsonConfigService extends ConfigProvider {
 
   // Sync settings
   @override
-  int get syncIntervalMinutes => _config['sync_interval_minutes'] ?? 15;
+  int get syncIntervalMinutes => _config["sync_interval_minutes"] ?? 30;
   
   @override
   set syncIntervalMinutes(int value) {

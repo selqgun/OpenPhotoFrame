@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
@@ -19,7 +20,7 @@ enum SyncStatusKind {
 }
 
 class SyncStatus {
-  const SyncStatus.success()
+  const SyncStatus.success({this.summary})
     : kind = SyncStatusKind.success,
       error = null;
 
@@ -27,12 +28,12 @@ class SyncStatus {
     : kind = SyncStatusKind.cancelled,
       error = null;
 
-  const SyncStatus.error(this.error) : kind = SyncStatusKind.error;
+  const SyncStatus.error(this.error) : kind = SyncStatusKind.error, summary = null;
 
   final SyncStatusKind kind;
   final Object? error;
+  final String? summary;
 }
-
 class PhotoService extends ChangeNotifier {
   final SyncProviderFactory _syncProviderFactory;
   final PlaylistStrategy _playlistStrategy;
@@ -245,7 +246,26 @@ class PhotoService extends ChangeNotifier {
       await _configProvider.save();
       
       _log.info("Sync completed successfully");
-      _updateSyncState(status: const SyncStatus.success());
+      var imageCount = 0;
+      var videoCount = 0;
+      try {
+        final localDir = await _storageProvider.getPhotoDirectory();
+        if (await localDir.exists()) {
+          final files = localDir.listSync(recursive: true, followLinks: false).whereType<File>();
+          for (final file in files) {
+            final path = file.path.toLowerCase();
+            if (path.endsWith(".jpg") || path.endsWith(".jpeg") || path.endsWith(".png") || path.endsWith(".webp")) {
+              imageCount++;
+            } else if (path.endsWith(".mp4") || path.endsWith(".webm") || path.endsWith(".mkv") || path.endsWith(".mov") || path.endsWith(".m4v")) {
+              videoCount++;
+}
+          }
+        }
+      } catch (e) {
+        _log.warning("Failed to count synced files", e);
+      }
+      final summary = "Synced successfully!\nAvailable locally: $imageCount images, $videoCount videos";
+      _updateSyncState(status: SyncStatus.success(summary: summary));
       // Repository watcher will pick up changes automatically
     } catch (e, stackTrace) {
       if (_cancelRequested) {
@@ -311,3 +331,5 @@ class PhotoService extends ChangeNotifier {
     super.dispose();
   }
 }
+
+

@@ -2,7 +2,7 @@
   "slide_duration_seconds": 600,
   "transition_duration_ms": 2000,
   "blur_borders": true,
-  "sync_interval_minutes": 15,
+  "sync_interval_minutes": 30,
   "delete_orphaned_files": true,
   "geocoding_provider": "amap",
   "geocoding_api_key": "8545784f853bf7ca29d976add1266162",

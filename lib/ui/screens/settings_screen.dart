@@ -1625,15 +1625,21 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     });
 
     try {
+      // 1. Save settings first so config is up to date for photoService!
+      await _saveSettings();
+
+      // 2. Test connection
       await SmbNativeClient().testConnection(config.toMap());
       if (!mounted) return;
       setState(() {
         _smbConnectionTestSuccess = true;
-        _smbConnectionTestResult = 'Connection successful!';
+        _smbConnectionTestResult = "Connection successful! Starting sync...";
       });
+
+      // 3. Trigger immediate sync
+      final photoService = context.read<PhotoService>();
+      photoService.triggerSync();
     } catch (error) {
-      if (!mounted) return;
-      setState(() {
         _smbConnectionTestSuccess = false;
         _smbConnectionTestResult = error.toString();
       });
@@ -1842,6 +1848,35 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           final statusText = _localizeSyncStatus(photoService.syncStatus);
           final statusIsError = photoService.syncStatus?.kind == SyncStatusKind.error;
 
+          if (_syncType == "smb") {
+            if (!isSyncing && statusText == null) {
+              return const SizedBox.shrink();
+            }
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (isSyncing) ...[
+                  _buildSyncProgressIndicator(
+                    progressValue: progressValue,
+                    label: progressLabel ?? AppLocalizations.of(context)!.syncing,
+                  ),
+                ],
+                if (statusText != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    statusText,
+                    style: TextStyle(
+                      color: statusIsError ? Colors.red : Colors.green,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
+            );
+          }
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -1957,7 +1992,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     }
 
     return switch (status.kind) {
-      SyncStatusKind.success => l10n.syncCompletedSuccessfully,
+      SyncStatusKind.success => status.summary ?? l10n.syncCompletedSuccessfully,
       SyncStatusKind.cancelled => l10n.syncCancelled,
       SyncStatusKind.error => l10n.syncError(
         _localizeNextcloudError(status.error),
@@ -2751,4 +2786,5 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     );
   }
 }
+
 
