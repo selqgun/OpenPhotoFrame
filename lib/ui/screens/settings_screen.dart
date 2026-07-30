@@ -584,7 +584,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           ],
           
           // Sync options (only visible if sync enabled - i.e. Nextcloud)
-          if (_syncType == 'nextcloud_link') ...[
+          if (_syncType == 'nextcloud_link' || _syncType == 'smb') ...[
             const SizedBox(height: 16),
             
             // Sync Interval Slider
