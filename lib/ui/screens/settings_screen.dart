@@ -1640,6 +1640,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       final photoService = context.read<PhotoService>();
       photoService.triggerSync();
     } catch (error) {
+      if (!mounted) return;
+      setState(() {
         _smbConnectionTestSuccess = false;
         _smbConnectionTestResult = error.toString();
       });

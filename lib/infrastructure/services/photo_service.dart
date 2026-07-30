@@ -26,7 +26,8 @@ class SyncStatus {
 
   const SyncStatus.cancelled()
     : kind = SyncStatusKind.cancelled,
-      error = null;
+      error = null,
+      summary = null;
 
   const SyncStatus.error(this.error) : kind = SyncStatusKind.error, summary = null;
 
