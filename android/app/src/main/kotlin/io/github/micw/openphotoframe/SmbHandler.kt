@@ -53,14 +53,42 @@ class SmbHandler {
                             val context = buildContext(args)
                             val path = normalizePath(args["path"] as String? ?: "")
                             val url = buildFileUrl(args, path, true)
-                            val files = SmbFile(url, context).listFiles().orEmpty().map {
-                                mapOf(
-                                    "path" to normalizePath(pathJoin(path, it.name.trimEnd('/'))),
-                                    "name" to it.name.trimEnd('/'),
-                                    "isDirectory" to (it.isDirectory || it.name.endsWith("/")),
-                                    "size" to if (it.isDirectory) null else it.length(),
-                                    "modifiedAt" to java.time.Instant.ofEpochMilli(it.lastModified()).toString(),
-                                )
+                            val rawFiles = try {
+                                SmbFile(url, context).listFiles().orEmpty()
+                            } catch (e: Exception) {
+                                Log.w(TAG, "listFiles failed for url: $url", e)
+                                throw e
+                            }
+                            val files = mutableListOf<Map<String, Any?>>()
+                            for (it in rawFiles) {
+                                try {
+                                    val name = it.name.trimEnd('/')
+                                    if (name.isEmpty() || name.startsWith(".") || name.startsWith("~$") || name.equals("@eaDir", ignoreCase = true)) {
+                                        continue
+                                    }
+                                    val isDir = try {
+                                        it.isDirectory || it.name.endsWith("/")
+                                    } catch (e: Exception) {
+                                        it.name.endsWith("/")
+                                    }
+                                    val size = if (isDir) null else try { it.length() } catch (e: Exception) { null }
+                                    val modifiedAt = try {
+                                        java.time.Instant.ofEpochMilli(it.lastModified()).toString()
+                                    } catch (e: Exception) {
+                                        null
+                                    }
+                                    files.add(
+                                        mapOf(
+                                            "path" to normalizePath(pathJoin(path, name)),
+                                            "name" to name,
+                                            "isDirectory" to isDir,
+                                            "size" to size,
+                                            "modifiedAt" to modifiedAt,
+                                        )
+                                    )
+                                } catch (e: Exception) {
+                                    Log.w(TAG, "Failed to inspect SMB entry ${it.name}", e)
+                                }
                             }
                             mainHandler.post { result.success(files) }
                         }
@@ -74,7 +102,7 @@ class SmbHandler {
                             localFile.parentFile?.mkdirs()
                             smbFile.inputStream.use { input ->
                                 FileOutputStream(localFile).use { output ->
-                                        input.copyTo(output)
+                                    input.copyTo(output)
                                 }
                             }
                             mainHandler.post { result.success(true) }
@@ -142,4 +170,3 @@ class SmbHandler {
         return "$parent/$name"
     }
 }
-

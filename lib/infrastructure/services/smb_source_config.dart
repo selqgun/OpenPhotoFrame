@@ -21,7 +21,49 @@ class SmbSourceConfig {
   final bool anonymous;
   final int cacheSizeMb;
 
-  bool get isValid => host.trim().isNotEmpty && share.trim().isNotEmpty;
+  String get effectiveShare {
+    var rawShare = share.trim().replaceAll('\\', '/').trim();
+    if (rawShare.startsWith('/')) rawShare = rawShare.substring(1);
+    if (rawShare.contains('/')) {
+      return rawShare.split('/').first;
+    }
+    if (rawShare.isNotEmpty) {
+      return rawShare;
+    }
+    var rawPath = path.trim().replaceAll('\\', '/').trim();
+    if (rawPath.startsWith('/')) rawPath = rawPath.substring(1);
+    if (rawPath.isNotEmpty) {
+      return rawPath.split('/').first;
+    }
+    return '';
+  }
+
+  String get effectivePath {
+    var rawShare = share.trim().replaceAll('\\', '/').trim();
+    if (rawShare.startsWith('/')) rawShare = rawShare.substring(1);
+    var extraFromShare = '';
+    if (rawShare.contains('/')) {
+      final parts = rawShare.split('/');
+      extraFromShare = parts.sublist(1).join('/');
+    }
+
+    var rawPath = path.trim().replaceAll('\\', '/').trim();
+    if (rawPath.startsWith('/')) rawPath = rawPath.substring(1);
+
+    if (share.trim().isEmpty && rawPath.isNotEmpty) {
+      final parts = rawPath.split('/');
+      return parts.sublist(1).join('/');
+    }
+
+    if (extraFromShare.isNotEmpty) {
+      if (rawPath.isEmpty) return extraFromShare;
+      return '$extraFromShare/$rawPath';
+    }
+
+    return normalizedPath;
+  }
+
+  bool get isValid => host.trim().isNotEmpty && effectiveShare.isNotEmpty;
 
   String get normalizedPath {
     var value = path.trim().replaceAll('\\', '/');
@@ -41,8 +83,8 @@ class SmbSourceConfig {
     return {
       'host': host,
       'port': port,
-      'share': share,
-      'path': normalizedPath,
+      'share': effectiveShare,
+      'path': effectivePath,
       'username': username,
       'password': password,
       'domain': domain,

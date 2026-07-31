@@ -51,30 +51,34 @@ class SmbSyncService implements SyncProvider {
     onProgress?.call(SyncProgress(completedFiles: 0, totalFiles: remoteFiles.length));
 
     for (final remoteFile in remoteFiles) {
-      final localFile = File('${localDirectory.path}${Platform.pathSeparator}${remoteFile.relativePath.replaceAll('/', Platform.pathSeparator)}');
-      await localFile.parent.create(recursive: true);
+      try {
+        final localFile = File('${localDirectory.path}${Platform.pathSeparator}${remoteFile.relativePath.replaceAll('/', Platform.pathSeparator)}');
+        await localFile.parent.create(recursive: true);
 
-      final shouldDownload = !await localFile.exists() ||
-          (remoteFile.size != null && await localFile.length() != remoteFile.size) ||
-          (remoteFile.modifiedAt != null && (await localFile.lastModified()).isBefore(remoteFile.modifiedAt!));
+        final shouldDownload = !await localFile.exists() ||
+            (remoteFile.size != null && await localFile.length() != remoteFile.size) ||
+            (remoteFile.modifiedAt != null && (await localFile.lastModified()).isBefore(remoteFile.modifiedAt!));
 
-      if (shouldDownload) {
-        final partFile = File('${localFile.path}.part');
-        if (await partFile.exists()) {
-          await partFile.delete();
+        if (shouldDownload) {
+          final partFile = File('${localFile.path}.part');
+          if (await partFile.exists()) {
+            await partFile.delete();
+          }
+          await _client.downloadFile(
+            config: configMap,
+            remotePath: remoteFile.remotePath,
+            localPath: partFile.path,
+          );
+          if (await localFile.exists()) {
+            await localFile.delete();
+          }
+          await partFile.rename(localFile.path);
+          if (remoteFile.modifiedAt != null) {
+            await localFile.setLastModified(remoteFile.modifiedAt!);
+          }
         }
-        await _client.downloadFile(
-          config: configMap,
-          remotePath: remoteFile.remotePath,
-          localPath: partFile.path,
-        );
-        if (await localFile.exists()) {
-          await localFile.delete();
-        }
-        await partFile.rename(localFile.path);
-        if (remoteFile.modifiedAt != null) {
-          await localFile.setLastModified(remoteFile.modifiedAt!);
-        }
+      } catch (error, stackTrace) {
+        _log.warning('Failed to sync remote file ${remoteFile.remotePath}', error, stackTrace);
       }
 
       completed++;
@@ -187,7 +191,13 @@ class SmbSyncService implements SyncProvider {
     }
   }
 
-  bool _isSupportedMedia(String path) => _isImage(path) || _isVideo(path);
+  bool _isSupportedMedia(String path) {
+    final fileName = path.split('/').last;
+    if (fileName.startsWith('.') || fileName.startsWith('~$') || fileName.toLowerCase() == '@eadir') {
+      return false;
+    }
+    return _isImage(path) || _isVideo(path);
+  }
 
   bool _isImage(String path) {
     final lower = path.toLowerCase();
