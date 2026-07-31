@@ -57,7 +57,7 @@ class SmbHandler {
                                 mapOf(
                                     "path" to normalizePath(pathJoin(path, it.name.trimEnd('/'))),
                                     "name" to it.name.trimEnd('/'),
-                                    "isDirectory" to it.isDirectory,
+                                    "isDirectory" to (it.isDirectory || it.name.endsWith("/")),
                                     "size" to if (it.isDirectory) null else it.length(),
                                     "modifiedAt" to java.time.Instant.ofEpochMilli(it.lastModified()).toString(),
                                 )

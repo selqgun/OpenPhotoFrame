@@ -1863,7 +1863,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                     label: progressLabel ?? AppLocalizations.of(context)!.syncing,
                   ),
                 ],
-                if (statusText != null) ...[
+                if (statusText != null && !isSyncing) ...[
                   const SizedBox(height: 8),
                   Text(
                     statusText,
@@ -1895,7 +1895,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                   icon: const Icon(Icons.sync),
                   label: Text(AppLocalizations.of(context)!.syncNow),
                 ),
-              if (statusText != null) ...[
+              if (statusText != null && !isSyncing) ...[
                 const SizedBox(height: 8),
                 Text(
                   statusText,
