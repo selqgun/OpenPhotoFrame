@@ -26,6 +26,10 @@ class SmbHandler {
 
     private val executor = Executors.newFixedThreadPool(4)
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    private var cachedKey: String? = null
+    private var cachedContext: CIFSContext? = null
+
     init {
         try {
             if (Security.getProvider("BC")?.javaClass?.name != "org.bouncycastle.jce.provider.BouncyCastleProvider") {
@@ -43,14 +47,14 @@ class SmbHandler {
                 try {
                     when (call.method) {
                         "testConnection" -> {
-                            val context = buildContext(call.arguments as Map<*, *>)
+                            val context = getOrCreateContext(call.arguments as Map<*, *>)
                             val root = buildRootUrl(call.arguments as Map<*, *>)
                             SmbFile(root, context).listFiles()
                             mainHandler.post { result.success(true) }
                         }
                         "listDirectory" -> {
                             val args = call.arguments as Map<*, *>
-                            val context = buildContext(args)
+                            val context = getOrCreateContext(args)
                             val path = normalizePath(args["path"] as String? ?: "")
                             val url = buildFileUrl(args, path, true)
                             val rawFiles = try {
@@ -94,7 +98,7 @@ class SmbHandler {
                         }
                         "downloadFile" -> {
                             val args = call.arguments as Map<*, *>
-                            val context = buildContext(args)
+                            val context = getOrCreateContext(args)
                             val remotePath = normalizePath(args["remotePath"] as String? ?: "")
                             val localPath = args["localPath"] as String? ?: throw IllegalArgumentException("localPath is required")
                             val smbFile = SmbFile(buildFileUrl(args, remotePath, false), context)
@@ -117,25 +121,47 @@ class SmbHandler {
         }
     }
 
-    private fun buildContext(args: Map<*, *>): CIFSContext {
+    @Synchronized
+    private fun getOrCreateContext(args: Map<*, *>): CIFSContext {
+        val host = args["host"] as String? ?: ""
+        val port = (args["port"] as Number?)?.toInt() ?: 445
+        val username = args["username"] as String? ?: ""
+        val password = args["password"] as String? ?: ""
+        val domain = args["domain"] as String? ?: ""
+        val anonymous = args["anonymous"] as Boolean? ?: false
+
+        val key = "$host:$port:$username:$password:$domain:$anonymous"
+        val existing = cachedContext
+        if (existing != null && cachedKey == key) {
+            return existing
+        }
+
+        try {
+            existing?.close()
+        } catch (e: Exception) {
+            Log.w(TAG, "Error closing previous CIFSContext", e)
+        }
+
         val properties = Properties().apply {
             setProperty("jcifs.smb.client.port139.enabled", "false")
             setProperty("jcifs.smb.client.responseTimeout", "30000")
             setProperty("jcifs.smb.client.connTimeout", "15000")
             setProperty("jcifs.smb.client.soTimeout", "30000")
+            setProperty("jcifs.smb.client.attrExpirationPeriod", "30000")
+            setProperty("jcifs.smb.client.maxBuffers", "16")
         }
         val config: Configuration = PropertyConfiguration(properties)
         val base = BaseContext(config)
 
-        val anonymous = args["anonymous"] as Boolean? ?: false
-        if (anonymous) {
-            return base.withCredentials(NtlmPasswordAuthenticator("", "guest", ""))
+        val ctx = if (anonymous) {
+            base.withCredentials(NtlmPasswordAuthenticator("", "guest", ""))
+        } else {
+            base.withCredentials(NtlmPasswordAuthenticator(domain, username, password))
         }
 
-        val domain = args["domain"] as String? ?: ""
-        val username = args["username"] as String? ?: ""
-        val password = args["password"] as String? ?: ""
-        return base.withCredentials(NtlmPasswordAuthenticator(domain, username, password))
+        cachedKey = key
+        cachedContext = ctx
+        return ctx
     }
 
     private fun buildRootUrl(args: Map<*, *>): String {

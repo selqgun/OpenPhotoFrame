@@ -2029,7 +2029,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       };
     }
 
-    return l10n.nextcloudErrorUnknown(error?.toString() ?? '');
+    return error?.toString() ?? '';
   }
   
   Widget _buildLastSyncInfo() {
