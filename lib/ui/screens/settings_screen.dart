@@ -96,8 +96,6 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late TextEditingController _smbPathController;
   late TextEditingController _smbUserController;
   late TextEditingController _smbPasswordController;
-  late TextEditingController _smbDomainController;
-  late bool _smbAnonymous;
   late double _smbCacheSizeMb;
   bool _isTestingSmbConnection = false;
   String? _smbConnectionTestResult;
@@ -240,8 +238,6 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _smbPathController = TextEditingController(text: smbConfig.path);
     _smbUserController = TextEditingController(text: smbConfig.username);
     _smbPasswordController = TextEditingController(text: smbConfig.password);
-    _smbDomainController = TextEditingController(text: smbConfig.domain);
-    _smbAnonymous = smbConfig.anonymous;
     _smbCacheSizeMb = smbConfig.cacheSizeMb.toDouble();
     // Store original values for comparison on save
     _originalSyncType = _syncType;
@@ -322,7 +318,6 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _smbPathController.dispose();
     _smbUserController.dispose();
     _smbPasswordController.dispose();
-    _smbDomainController.dispose();
     super.dispose();
   }
   
@@ -1598,8 +1593,6 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
       path: _smbPathController.text.trim(),
       username: _smbUserController.text.trim(),
       password: _smbPasswordController.text,
-      domain: _smbDomainController.text.trim(),
-      anonymous: _smbAnonymous,
       cacheSizeMb: _smbCacheSizeMb.round(),
     );
   }
@@ -1611,8 +1604,6 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
         left.normalizedPath == right.normalizedPath &&
         left.username == right.username &&
         left.password == right.password &&
-        left.domain == right.domain &&
-        left.anonymous == right.anonymous &&
         left.cacheSizeMb == right.cacheSizeMb;
   }
 
@@ -1692,33 +1683,16 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
             ),
           ),
           const SizedBox(height: 8),
-          SwitchListTile(
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Anonymous Login'),
-            value: _smbAnonymous,
-            onChanged: (value) {
-              setState(() => _smbAnonymous = value);
-            },
+          TextField(
+            controller: _smbUserController,
+            decoration: const InputDecoration(labelText: 'Username'),
           ),
-          if (!_smbAnonymous) ...[
-            TextField(
-              controller: _smbUserController,
-              decoration: const InputDecoration(labelText: 'Username'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _smbPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(labelText: 'Password'),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _smbDomainController,
-              decoration: const InputDecoration(
-                labelText: 'Domain / Workgroup (optional)',
-              ),
-            ),
-          ],
+          const SizedBox(height: 8),
+          TextField(
+            controller: _smbPasswordController,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Password'),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [

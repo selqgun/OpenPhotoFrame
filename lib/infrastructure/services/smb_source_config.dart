@@ -6,8 +6,6 @@ class SmbSourceConfig {
     this.path = '',
     this.username = '',
     this.password = '',
-    this.domain = '',
-    this.anonymous = false,
     this.cacheSizeMb = 1024,
   });
 
@@ -17,8 +15,6 @@ class SmbSourceConfig {
   final String path;
   final String username;
   final String password;
-  final String domain;
-  final bool anonymous;
   final int cacheSizeMb;
 
   String get effectiveShare {
@@ -87,8 +83,6 @@ class SmbSourceConfig {
       'path': effectivePath,
       'username': username,
       'password': password,
-      'domain': domain,
-      'anonymous': anonymous,
       'cache_size_mb': cacheSizeMb,
     };
   }
@@ -101,8 +95,6 @@ class SmbSourceConfig {
       path: map['path'] as String? ?? '',
       username: map['username'] as String? ?? '',
       password: map['password'] as String? ?? '',
-      domain: map['domain'] as String? ?? '',
-      anonymous: map['anonymous'] as bool? ?? false,
       cacheSizeMb: (map['cache_size_mb'] as num?)?.toInt() ?? 1024,
     );
   }

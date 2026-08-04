@@ -127,10 +127,8 @@ class SmbHandler {
         val port = (args["port"] as Number?)?.toInt() ?: 445
         val username = args["username"] as String? ?: ""
         val password = args["password"] as String? ?: ""
-        val domain = args["domain"] as String? ?: ""
-        val anonymous = args["anonymous"] as Boolean? ?: false
 
-        val key = "$host:$port:$username:$password:$domain:$anonymous"
+        val key = "$host:$port:$username:$password"
         val existing = cachedContext
         if (existing != null && cachedKey == key) {
             return existing
@@ -153,11 +151,7 @@ class SmbHandler {
         val config: Configuration = PropertyConfiguration(properties)
         val base = BaseContext(config)
 
-        val ctx = if (anonymous) {
-            base.withCredentials(NtlmPasswordAuthenticator("", "guest", ""))
-        } else {
-            base.withCredentials(NtlmPasswordAuthenticator(domain, username, password))
-        }
+        val ctx = base.withCredentials(NtlmPasswordAuthenticator("", username, password))
 
         cachedKey = key
         cachedContext = ctx
