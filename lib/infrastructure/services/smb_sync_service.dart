@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:logging/logging.dart';
 
+import '../../domain/interfaces/config_provider.dart';
 import '../../domain/interfaces/storage_provider.dart';
 import '../../domain/interfaces/sync_provider.dart';
 import 'smb_native_client.dart';

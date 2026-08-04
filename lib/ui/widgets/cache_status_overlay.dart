@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../domain/interfaces/config_provider.dart';
@@ -202,14 +202,14 @@ class _CacheStatusOverlayState extends State<CacheStatusOverlay> {
                   const SizedBox(width: 4),
                   Text(
                     '$_imageCount / ${widget.configProvider.maxCacheImages}',
-                    style: const TextStyle(color: Colors.white90, fontSize: 11),
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
                   ),
                   const SizedBox(width: 10),
                   const Icon(Icons.videocam_outlined, color: Colors.white60, size: 13),
                   const SizedBox(width: 4),
                   Text(
                     '$_videoCount / ${widget.configProvider.maxCacheVideos}',
-                    style: const TextStyle(color: Colors.white90, fontSize: 11),
+                    style: const TextStyle(color: Colors.white70, fontSize: 11),
                   ),
                 ],
               ),
