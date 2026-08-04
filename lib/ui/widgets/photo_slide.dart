@@ -34,7 +34,13 @@ class PhotoSlide extends StatelessWidget {
       children: [
         if (blurBorders) ...[
           Image(
-            image: imageProvider,
+            // Use downsampled low-res provider for backdrop blur to save 90%+ memory & decode overhead
+            image: ResizeImage(
+              FileImage(photo.file),
+              width: 120,
+              height: 120,
+              policy: ResizeImagePolicy.fit,
+            ),
             fit: BoxFit.cover,
             gaplessPlayback: true,
           ),

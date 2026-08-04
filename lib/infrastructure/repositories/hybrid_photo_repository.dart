@@ -156,6 +156,8 @@ class HybridPhotoRepository implements PhotoRepository {
 
       for (var file in files) {
         if (_isSupportedMedia(file.path) && !file.path.endsWith('.part')) {
+          final stat = await file.stat();
+          if (stat.size == 0) continue; // Skip corrupted / zero-byte incomplete files
           // Preserve existing PhotoEntry instances to maintain runtime state
           final existingIndex = _photos.indexWhere((p) => p.file.path == file.path);
 

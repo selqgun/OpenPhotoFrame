@@ -110,6 +110,8 @@ class FileSystemPhotoRepository implements PhotoRepository {
 
       for (var file in files) {
         if (_isSupportedMedia(file.path) && !file.path.endsWith('.part')) {
+          final stat = await file.stat();
+          if (stat.size == 0) continue; // Skip corrupted / zero-byte incomplete files
           // Check if we already have this file in memory to preserve runtime state
           // (lastShown, weight) across rescans
           final existingIndex = _photos.indexWhere((p) => p.file.path == file.path);
@@ -120,7 +122,6 @@ class FileSystemPhotoRepository implements PhotoRepository {
             newPhotos.add(_photos[existingIndex]);
           } else {
             // New file - only get file stats (EXIF loaded lazily when displayed)
-            final stat = await file.stat();
             newPhotos.add(PhotoEntry(
               file: file,
               date: stat.modified,  // File date for shuffle algorithm

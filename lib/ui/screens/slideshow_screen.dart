@@ -96,6 +96,9 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
 
   @override
   void initState() {
+    // Limit ImageCache to prevent OOM when rapidly flipping photos
+    PaintingBinding.instance.imageCache.maximumSizeBytes = 60 * 1024 * 1024;
+    PaintingBinding.instance.imageCache.maximumSize = 10;
     super.initState();
     // Register lifecycle observer
     WidgetsBinding.instance.addObserver(this);
@@ -439,7 +442,16 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     }
   }
 
+  DateTime? _lastManualNavTime;
+
   void _manualNavigation(bool forward) {
+    // Debounce rapid clicking (min 250ms gap) to prevent UI thread freezing & memory spikes
+    final now = DateTime.now();
+    if (_lastManualNavTime != null && now.difference(_lastManualNavTime!) < const Duration(milliseconds: 250)) {
+      return;
+    }
+    _lastManualNavTime = now;
+
     _timer?.cancel(); // Stop auto-advance
     
     final service = context.read<PhotoService>();

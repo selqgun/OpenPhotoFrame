@@ -75,6 +75,8 @@ class SmbSyncService implements SyncProvider {
           await partFile.rename(localFile.path);
           if (remoteFile.modifiedAt != null) {
             await localFile.setLastModified(remoteFile.modifiedAt!);
+            // Yield UI/event loop briefly to prevent disk/CPU starvation during heavy sync
+            await Future.delayed(const Duration(milliseconds: 20));
           }
         }
       } catch (error, stackTrace) {
