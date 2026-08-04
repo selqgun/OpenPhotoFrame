@@ -74,6 +74,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   late bool _geocodingEnabled;
   late String _geocodingProvider;
   late bool _useScriptFontForMetadata;
+  late bool _showCacheStatus;
+  late int _maxCacheImages;
+  late int _maxCacheVideos;
   
   // Display schedule settings
   late bool _scheduleEnabled;
@@ -172,6 +175,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     _geocodingEnabled = config.geocodingEnabled;
     _geocodingProvider = config.geocodingProvider;
     _useScriptFontForMetadata = config.useScriptFontForMetadata;
+      _showCacheStatus = config.showCacheStatus;
+      _maxCacheImages = config.maxCacheImages;
+      _maxCacheVideos = config.maxCacheVideos;
     
     // Display schedule settings
     _scheduleEnabled = config.scheduleEnabled;
@@ -380,6 +386,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
     config.geocodingEnabled = _geocodingEnabled;
     config.geocodingProvider = _geocodingProvider;
     config.useScriptFontForMetadata = _useScriptFontForMetadata;
+      config.showCacheStatus = _showCacheStatus;
+      config.maxCacheImages = _maxCacheImages;
+      config.maxCacheVideos = _maxCacheVideos;
     
     // Display schedule settings
     config.scheduleEnabled = _scheduleEnabled;
@@ -565,7 +574,71 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           const Divider(),
           const SizedBox(height: 16),
           
-          // === SYNC SETTINGS ===
+          // === CACHE SETTINGS ===
+            _buildSectionHeader('缓存与预载设置 (Cache Settings)'),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              title: const Text('轮播界面显示缓存状态'),
+              subtitle: const Text('在照片轮播播放界面悬浮显示当前实际占用容量、百分比及图片/视频数量'),
+              secondary: const Icon(Icons.sd_card_outlined),
+              value: _showCacheStatus,
+              onChanged: (value) {
+                setState(() => _showCacheStatus = value);
+              },
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.image_outlined, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(child: const Text('最大缓存图片数量')),
+                      Text('$_maxCacheImages 张'),
+                    ],
+                  ),
+                  Slider(
+                    value: _maxCacheImages.toDouble().clamp(50.0, 1000.0),
+                    min: 50,
+                    max: 1000,
+                    divisions: 19,
+                    label: '$_maxCacheImages 张',
+                    onChanged: (value) {
+                      setState(() {
+                        _maxCacheImages = value.round();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.videocam_outlined, size: 20),
+                      const SizedBox(width: 12),
+                      Expanded(child: const Text('最大缓存视频数量')),
+                      Text('$_maxCacheVideos 个'),
+                    ],
+                  ),
+                  Slider(
+                    value: _maxCacheVideos.toDouble().clamp(1.0, 50.0),
+                    min: 1,
+                    max: 50,
+                    divisions: 49,
+                    label: '$_maxCacheVideos 个',
+                    onChanged: (value) {
+                      setState(() {
+                        _maxCacheVideos = value.round();
+                      });
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Divider(),
+            const SizedBox(height: 16),
+            // === SYNC SETTINGS ===
           _buildSectionHeader(AppLocalizations.of(context)!.sectionPhotoSource),
           const SizedBox(height: 8),
           

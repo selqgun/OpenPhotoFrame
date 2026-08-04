@@ -100,7 +100,7 @@ class SmbSyncService implements SyncProvider {
       );
     }
 
-    await _enforceCacheLimit(localDirectory, _sourceConfig.cacheSizeMb * 1024 * 1024);
+    await _enforceCacheLimit(localDirectory, _sourceConfig.cacheSizeMb * 1024 * 1024, maxImages: _storageProvider is ConfigProvider ? (_storageProvider as ConfigProvider).maxCacheImages : 200, maxVideos: _storageProvider is ConfigProvider ? (_storageProvider as ConfigProvider).maxCacheVideos : 10);
   }
 
   Future<List<_RemoteMedia>> _collectRemoteFiles({
@@ -160,35 +160,69 @@ class SmbSyncService implements SyncProvider {
     }
   }
 
-  Future<void> _enforceCacheLimit(Directory localDirectory, int maxBytes) async {
-    if (maxBytes <= 0) {
-      return;
-    }
-    final files = <File>[];
+  Future<void> _enforceCacheLimit(
+    Directory localDirectory,
+    int maxBytes, {
+    int maxImages = 200,
+    int maxVideos = 10,
+  }) async {
+    final imageFiles = <File>[];
+    final videoFiles = <File>[];
     await for (final entity in localDirectory.list(recursive: true, followLinks: false)) {
       if (entity is File && _isSupportedMedia(entity.path) && !entity.path.endsWith('.part')) {
-        files.add(entity);
+        if (_isImage(entity.path)) {
+          imageFiles.add(entity);
+        } else if (_isVideo(entity.path)) {
+          videoFiles.add(entity);
+        }
       }
     }
-    files.sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
-    var totalBytes = 0;
-    final lengths = <String, int>{};
-    for (final file in files) {
-      final length = await file.length();
-      lengths[file.path] = length;
-      totalBytes += length;
-    }
-    for (final file in files) {
-      if (totalBytes <= maxBytes) {
-        break;
-      }
-      final length = lengths[file.path] ?? 0;
+
+    imageFiles.sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
+    videoFiles.sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
+
+    while (imageFiles.length > maxImages && maxImages > 0) {
+      final oldImage = imageFiles.removeAt(0);
       try {
-        await file.delete();
-        totalBytes -= length;
-        _log.info('Evicted cached media: ${file.path}');
-      } catch (error) {
-        _log.warning('Failed to evict cached media ${file.path}', error);
+        await oldImage.delete();
+        _log.info('Evicted excess image: ${oldImage.path}');
+      } catch (e) {
+        _log.warning('Failed to evict excess image ${oldImage.path}', e);
+      }
+    }
+
+    while (videoFiles.length > maxVideos && maxVideos > 0) {
+      final oldVideo = videoFiles.removeAt(0);
+      try {
+        await oldVideo.delete();
+        _log.info('Evicted excess video: ${oldVideo.path}');
+      } catch (e) {
+        _log.warning('Failed to evict excess video ${oldVideo.path}', e);
+      }
+    }
+
+    if (maxBytes > 0) {
+      final allFiles = [...imageFiles, ...videoFiles];
+      allFiles.sort((a, b) => a.statSync().modified.compareTo(b.statSync().modified));
+
+      var totalBytes = 0;
+      final lengths = <String, int>{};
+      for (final file in allFiles) {
+        final length = await file.length();
+        lengths[file.path] = length;
+        totalBytes += length;
+      }
+
+      for (final file in allFiles) {
+        if (totalBytes <= maxBytes) break;
+        final length = lengths[file.path] ?? 0;
+        try {
+          await file.delete();
+          totalBytes -= length;
+          _log.info('Evicted cached media over size limit: ${file.path}');
+        } catch (error) {
+          _log.warning('Failed to evict cached media ${file.path}', error);
+        }
       }
     }
   }

@@ -114,4 +114,12 @@ abstract class ConfigProvider extends ChangeNotifier {
   // Values: 'auto', 'portraitUp', 'portraitDown', 'landscapeLeft', 'landscapeRight'
   String get screenOrientation;
   set screenOrientation(String value);
+
+  // Cache status overlay and limits
+  bool get showCacheStatus;
+  set showCacheStatus(bool value);
+  int get maxCacheImages;
+  set maxCacheImages(int value);
+  int get maxCacheVideos;
+  set maxCacheVideos(int value);
 }

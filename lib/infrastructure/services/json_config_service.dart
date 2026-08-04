@@ -536,4 +536,29 @@ class JsonConfigService extends ConfigProvider {
   set screenOrientation(String value) {
     _config['screen_orientation'] = value;
   }
+
+  // Cache status overlay and limits
+  @override
+  bool get showCacheStatus => _config['show_cache_status'] ?? true;
+
+  @override
+  set showCacheStatus(bool value) {
+    _config['show_cache_status'] = value;
+  }
+
+  @override
+  int get maxCacheImages => _config['max_cache_images'] ?? 200;
+
+  @override
+  set maxCacheImages(int value) {
+    _config['max_cache_images'] = value;
+  }
+
+  @override
+  int get maxCacheVideos => _config['max_cache_videos'] ?? 10;
+
+  @override
+  set maxCacheVideos(int value) {
+    _config['max_cache_videos'] = value;
+  }
 }

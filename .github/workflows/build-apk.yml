@@ -5,6 +5,7 @@ on:
     branches:
       - master
       - codex/smb-source-cache-a
+      - feature/cache-status-overlay
     tags:
       - 'v*'
   pull_request:

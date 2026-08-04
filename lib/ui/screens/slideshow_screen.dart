@@ -19,6 +19,8 @@ import '../widgets/photo_slide.dart';
 import '../widgets/video_slide.dart';
 import '../widgets/clock_overlay.dart';
 import '../widgets/photo_info_overlay.dart';
+import '../widgets/cache_status_overlay.dart';
+import '../../domain/interfaces/storage_provider.dart';
 import '../../infrastructure/services/json_config_service.dart';
 import 'settings_screen.dart';
 
@@ -804,7 +806,16 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
               locationName: config.geocodingEnabled ? _currentLocationName : null,
               locationError: config.geocodingEnabled ? _currentLocationError : null,
               useScriptFont: config.useScriptFontForMetadata,
-            ),
+              ),
+
+            // 4. Cache Status Overlay
+            if (config.showCacheStatus)
+              CacheStatusOverlay(
+                key: const ValueKey('cache_status_overlay'),
+                storageProvider: context.read<StorageProvider>(),
+                configProvider: config,
+                position: 'topLeft',
+              ),
 
           // 4. Touch Layer (Invisible, on top)
           Positioned.fill(
