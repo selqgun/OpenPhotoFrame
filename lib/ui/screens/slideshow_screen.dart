@@ -811,9 +811,10 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
             // 4. Cache Status Overlay
             if (config.showCacheStatus)
               CacheStatusOverlay(
-                key: const ValueKey('cache_status_overlay'),
+                key: ValueKey('cache_status_overlay'),
                 storageProvider: context.read<StorageProvider>(),
                 configProvider: config,
+                currentPhoto: _currentPhoto,
                 position: 'topLeft',
               ),
 

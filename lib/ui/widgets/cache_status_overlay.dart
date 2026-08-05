@@ -1,20 +1,25 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../domain/interfaces/config_provider.dart';
+import '../../domain/interfaces/photo_repository.dart';
 import '../../domain/interfaces/storage_provider.dart';
+import '../../domain/models/photo_entry.dart';
 import '../../infrastructure/services/smb_source_config.dart';
 
-/// An overlay widget displaying cache usage (used size, percentage, image & video count).
+/// An overlay widget displaying cache usage (used size, percentage, image & video count, and current index).
 class CacheStatusOverlay extends StatefulWidget {
   final StorageProvider storageProvider;
   final ConfigProvider configProvider;
+  final PhotoEntry? currentPhoto;
   final String position; // 'topLeft', 'topRight', 'bottomLeft', 'bottomRight'
 
   const CacheStatusOverlay({
     super.key,
     required this.storageProvider,
     required this.configProvider,
+    this.currentPhoto,
     this.position = 'topLeft',
   });
 
@@ -150,11 +155,24 @@ class _CacheStatusOverlayState extends State<CacheStatusOverlay> {
     }
   }
 
+  (int index, int total) _getPhotoIndexAndTotal(BuildContext context) {
+    if (widget.currentPhoto == null) return (0, 0);
+    try {
+      final repository = context.read<PhotoRepository>();
+      final photos = repository.photos;
+      final idx = photos.indexWhere((p) => p.file.path == widget.currentPhoto!.file.path);
+      return (idx >= 0 ? idx + 1 : 0, photos.length);
+    } catch (_) {
+      return (0, 0);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final double usedMb = _usedBytes / (1024 * 1024);
     final int maxMb = _maxCacheMb;
     final double percentage = (maxMb > 0 ? (usedMb / maxMb) * 100 : 0.0).clamp(0.0, 100.0);
+    final (currentIndex, totalCount) = _getPhotoIndexAndTotal(context);
 
     return Align(
       alignment: _alignment,
@@ -213,6 +231,20 @@ class _CacheStatusOverlayState extends State<CacheStatusOverlay> {
                   ),
                 ],
               ),
+              if (currentIndex > 0) ...[
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.format_list_numbered, color: Colors.white60, size: 13),
+                    const SizedBox(width: 4),
+                    Text(
+                      '游标: $currentIndex / $totalCount',
+                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
