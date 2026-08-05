@@ -575,11 +575,11 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
           const SizedBox(height: 16),
           
           // === CACHE SETTINGS ===
-            _buildSectionHeader('»º´æÓëÔ¤ÔØÉèÖÃ (Cache Settings)'),
+            _buildSectionHeader('ç¼“å­˜ä¸é¢„è½½è®¾ç½® (Cache Settings)'),
             const SizedBox(height: 8),
             SwitchListTile(
-              title: const Text('ÂÖ²¥½çÃæÏÔÊ¾»º´æ×´Ì¬'),
-              subtitle: const Text('ÔÚÕÕÆ¬ÂÖ²¥²¥·Å½çÃæĞü¸¡ÏÔÊ¾µ±Ç°Êµ¼ÊÕ¼ÓÃÈİÁ¿¡¢°Ù·Ö±È¼°Í¼Æ¬/ÊÓÆµÊıÁ¿'),
+              title: const Text('è½®æ’­ç•Œé¢æ˜¾ç¤ºç¼“å­˜çŠ¶æ€'),
+              subtitle: const Text('åœ¨ç…§ç‰‡è½®æ’­æ’­æ”¾ç•Œé¢æ‚¬æµ®æ˜¾ç¤ºå½“å‰å®é™…å ç”¨å®¹é‡ã€ç™¾åˆ†æ¯”åŠå›¾ç‰‡/è§†é¢‘æ•°é‡'),
               secondary: const Icon(Icons.sd_card_outlined),
               value: _showCacheStatus,
               onChanged: (value) {
@@ -595,8 +595,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                     children: [
                       const Icon(Icons.image_outlined, size: 20),
                       const SizedBox(width: 12),
-                      Expanded(child: const Text('×î´ó»º´æÍ¼Æ¬ÊıÁ¿')),
-                      Text('$_maxCacheImages ÕÅ'),
+                      Expanded(child: const Text('æœ€å¤§ç¼“å­˜å›¾ç‰‡æ•°é‡')),
+                      Text('$_maxCacheImages å¼ '),
                     ],
                   ),
                   Slider(
@@ -604,7 +604,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                     min: 50,
                     max: 1000,
                     divisions: 19,
-                    label: '$_maxCacheImages ÕÅ',
+                    label: '$_maxCacheImages å¼ ',
                     onChanged: (value) {
                       setState(() {
                         _maxCacheImages = value.round();
@@ -616,8 +616,8 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                     children: [
                       const Icon(Icons.videocam_outlined, size: 20),
                       const SizedBox(width: 12),
-                      Expanded(child: const Text('×î´ó»º´æÊÓÆµÊıÁ¿')),
-                      Text('$_maxCacheVideos ¸ö'),
+                      Expanded(child: const Text('æœ€å¤§ç¼“å­˜è§†é¢‘æ•°é‡')),
+                      Text('$_maxCacheVideos ä¸ª'),
                     ],
                   ),
                   Slider(
@@ -625,7 +625,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                     min: 1,
                     max: 50,
                     divisions: 49,
-                    label: '$_maxCacheVideos ¸ö',
+                    label: '$_maxCacheVideos ä¸ª',
                     onChanged: (value) {
                       setState(() {
                         _maxCacheVideos = value.round();
@@ -772,7 +772,7 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
                 context: context,
                 applicationName: 'Open Photo Frame',
                 applicationVersion: _appVersion.isEmpty ? '...' : _appVersion,
-                applicationLegalese: 'Â© 2026 Michael Wyraz',
+                applicationLegalese: 'æ¼ 2026 Michael Wyraz',
               );
             },
           ),
