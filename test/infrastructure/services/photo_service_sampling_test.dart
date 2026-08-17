@@ -300,6 +300,13 @@ void main() {
     });
     await listFile.writeAsString(jsonEncode(dummyRemoteFiles));
 
+    // Pre-create some local files to simulate they are already cached on disk
+    for (int i = 0; i < 10; i++) {
+      final file = File('${tempDir.path}${Platform.pathSeparator}photo_$i.jpg');
+      await file.parent.create(recursive: true);
+      await file.writeAsBytes(utf8.encode('mock_photo_content'));
+    }
+
     photoService = PhotoService(
       syncProviderFactory: () => throw UnimplementedError(),
       playlistStrategy: playlistStrategy,
@@ -378,6 +385,8 @@ void main() {
     // 1. Initially, we can get up to 3 photos
     final p1 = photoService.nextPhoto();
     final p2 = photoService.nextPhoto();
+    // Yield to let the asynchronous preload/append trigger run
+    await Future.delayed(Duration.zero);
     final p3 = photoService.nextPhoto();
 
     expect(p1, isNotNull);
