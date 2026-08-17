@@ -10,6 +10,12 @@ on:
       - 'v*'
   pull_request:
   workflow_dispatch:
+    inputs:
+      run-tests:
+        description: 'Run unit tests during this workflow run'
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -41,6 +47,10 @@ jobs:
 
       - name: Generate localizations
         run: flutter gen-l10n
+
+      - name: Run unit tests
+        if: ${{ github.event.inputs.run-tests == 'true' }}
+        run: flutter test
 
       - name: Build Debug APK
         run: flutter build apk --debug
@@ -78,6 +88,10 @@ jobs:
 
       - name: Generate localizations
         run: flutter gen-l10n
+
+      - name: Run unit tests
+        if: ${{ github.event.inputs.run-tests == 'true' }}
+        run: flutter test
 
       - name: Check signing availability
         id: signing

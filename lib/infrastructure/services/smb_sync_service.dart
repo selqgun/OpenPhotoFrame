@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:convert';
 
 import 'package:logging/logging.dart';
 
@@ -48,51 +49,27 @@ class SmbSyncService implements SyncProvider {
     remoteFiles.sort((a, b) => a.relativePath.compareTo(b.relativePath));
     final remoteRelativePaths = remoteFiles.map((item) => item.relativePath).toSet();
 
-    var completed = 0;
-    onProgress?.call(SyncProgress(completedFiles: 0, totalFiles: remoteFiles.length));
-
-    for (final remoteFile in remoteFiles) {
-      try {
-        final localFile = File('${localDirectory.path}${Platform.pathSeparator}${remoteFile.relativePath.replaceAll('/', Platform.pathSeparator)}');
-        await localFile.parent.create(recursive: true);
-
-        final shouldDownload = !await localFile.exists() ||
-            (remoteFile.size != null && await localFile.length() != remoteFile.size) ||
-            (remoteFile.modifiedAt != null && (await localFile.lastModified()).isBefore(remoteFile.modifiedAt!));
-
-        if (shouldDownload) {
-          final partFile = File('${localFile.path}.part');
-          if (await partFile.exists()) {
-            await partFile.delete();
-          }
-          await _client.downloadFile(
-            config: configMap,
-            remotePath: remoteFile.remotePath,
-            localPath: partFile.path,
-          );
-          if (await localFile.exists()) {
-            await localFile.delete();
-          }
-          await partFile.rename(localFile.path);
-          if (remoteFile.modifiedAt != null) {
-            await localFile.setLastModified(remoteFile.modifiedAt!);
-            // Yield UI/event loop briefly to prevent disk/CPU starvation during heavy sync
-            await Future.delayed(const Duration(milliseconds: 20));
-          }
-        }
-      } catch (error, stackTrace) {
-        _log.warning('Failed to sync remote file ${remoteFile.remotePath}', error, stackTrace);
-      }
-
-      completed++;
-      onProgress?.call(
-        SyncProgress(
-          completedFiles: completed,
-          totalFiles: remoteFiles.length,
-          currentFileLabel: remoteFile.relativePath,
-        ),
-      );
+    // Save remoteFiles to smb_list.json
+    try {
+      final listFile = File('${localDirectory.parent.path}${Platform.pathSeparator}smb_list.json');
+      final listJson = remoteFiles.map((f) => {
+        'remotePath': f.remotePath,
+        'relativePath': f.relativePath,
+        'size': f.size,
+        'modifiedAt': f.modifiedAt?.toIso8601String(),
+      }).toList();
+      await listFile.writeAsString(jsonEncode(listJson));
+      _log.info('Saved SMB_List index to ${listFile.path} (${remoteFiles.length} entries)');
+    } catch (e, stack) {
+      _log.warning('Failed to save SMB_List index', e, stack);
     }
+
+    var completed = remoteFiles.length;
+    onProgress?.call(SyncProgress(
+      completedFiles: completed,
+      totalFiles: remoteFiles.length,
+      currentFileLabel: 'Index updated',
+    ));
 
     if (deleteOrphanedFiles) {
       await _deleteOrphanedLocalFiles(
@@ -101,7 +78,12 @@ class SmbSyncService implements SyncProvider {
       );
     }
 
-    await _enforceCacheLimit(localDirectory, _sourceConfig.cacheSizeMb * 1024 * 1024, maxImages: _storageProvider is ConfigProvider ? (_storageProvider as ConfigProvider).maxCacheImages : 200, maxVideos: _storageProvider is ConfigProvider ? (_storageProvider as ConfigProvider).maxCacheVideos : 10);
+    await _enforceCacheLimit(
+      localDirectory,
+      _sourceConfig.cacheSizeMb * 1024 * 1024,
+      maxImages: _storageProvider is ConfigProvider ? (_storageProvider as ConfigProvider).maxCacheImages : 200,
+      maxVideos: _storageProvider is ConfigProvider ? (_storageProvider as ConfigProvider).maxCacheVideos : 10,
+    );
   }
 
   Future<List<_RemoteMedia>> _collectRemoteFiles({
