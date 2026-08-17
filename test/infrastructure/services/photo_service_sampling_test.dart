@@ -351,6 +351,12 @@ void main() {
   });
 
   test("Network interruption fallback retry protection loop", () async {
+    // Clear pre-created cached files to simulate a completely empty cache
+    if (await tempDir.exists()) {
+      await tempDir.delete(recursive: true);
+      await tempDir.create(recursive: true);
+    }
+
     // Disable mock download to simulate network interruption
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
