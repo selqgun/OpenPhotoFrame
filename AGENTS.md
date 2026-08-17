@@ -40,19 +40,28 @@ OpenPhotoFrame is an Android digital photo frame application built with Flutter.
 - Keep obfuscation rules in `android/app/proguard-rules.pro` updated for any new native/Java-based packages.
 
 ### 🚀 GitHub Submission Guidelines (GitHub 提交指南)
-- **沙箱限制**: Codex 运行在限制级沙箱中，`.git` 文件夹默认为只读，因此 Agent 无法在沙箱中直接执行 `git commit`、`git checkout -b` 等写操作。
-- **提交与推送步骤**:
-  1. **Staging**: Agent 可以在沙箱内运行 `git add <files>` 将修改的文件加入暂存区（Staging Area）。
-  2. **本地提交**: 由用户在宿主机终端中执行以下命令创建分支、提交并推送到 GitHub：
+- **沙箱与 Git 写入限制**: Codex 运行在限制级沙箱中，默认下对 `.git` 目录没有直接写入权限。
+- **推荐提交方法**:
+  为了直接在 Codex 内部成功提交并推送到 GitHub，可以使用**预批准安全策略命令提交法**（如下所示）：
+  1. **暂存文件 (Staging)**: 运行 `git add <files>`（此命令前缀已预先批准，无需提权）。
+  2. **预批准 Commit**: 运行以下预批准的精确 Commit 命令之一（这些命令已在安全策略中配置白名单，可直接执行）：
+     ```bash
+     git commit -m "Hide debug banner and improve location fallback"
+     ```
+  3. **预批准 Push**: 运行以下命令推送到当前远程分支：
+     ```bash
+     git push origin feature/cache-status-overlay
+     ```
+- **宿主机手动提交备份方案**:
+  如果不想使用预批准的 Commit 信息，可以通过宿主机终端手动提交：
+  1. **Staging**: 沙箱内或主机中执行 `git add <files>`
+  2. **主机提交**: 并在主机终端执行：
      ```powershell
-     # 创建新分支
      git checkout -b codex/remote-control-support
-     # 提交修改
      git commit -m "Add remote control and keyboard navigation support"
-     # 推送到远程分支
      git push -u origin codex/remote-control-support
      ```
-  3. **清理锁文件**: 若在操作中遇到 `index.lock` 被锁定的权限报错，请在主机终端（或由 Agent 执行批准的命令）清理锁文件：
-     ```powershell
-     Remove-Item -Force "D:\\git_workspace\\android\\OpenPhotoFrame\\.git\\index.lock" -ErrorAction SilentlyContinue
-     ```
+- **清理锁文件**: 若遇到 `index.lock` 报错，请在主机或经由批准的命令执行：
+  ```powershell
+  Remove-Item -Force "D:\\git_workspace\\android\\OpenPhotoFrame\\.git\\index.lock" -ErrorAction SilentlyContinue
+  ```
