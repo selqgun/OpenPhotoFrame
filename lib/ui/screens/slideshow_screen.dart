@@ -67,6 +67,7 @@ class SlideshowScreen extends StatefulWidget {
 }
 
 class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderStateMixin, WidgetsBindingObserver {
+  late final FocusNode _focusNode;
   PhotoEntry? _currentPhoto;
   Timer? _timer;
   bool _isLoading = true;
@@ -98,6 +99,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
 
   @override
   void initState() {
+    _focusNode = FocusNode();
     // Limit ImageCache to prevent OOM when rapidly flipping photos
     PaintingBinding.instance.imageCache.maximumSizeBytes = 60 * 1024 * 1024;
     PaintingBinding.instance.imageCache.maximumSize = 10;
@@ -483,6 +485,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
       
       // Restart timer when returning from settings
       _startTimer();
+      _focusNode.requestFocus();
     });
   }
 
@@ -659,6 +662,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
 
   @override
   void dispose() {
+    _focusNode.dispose();
     // Remove lifecycle observer
     WidgetsBinding.instance.removeObserver(this);
     
@@ -712,25 +716,43 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
 
     if (_slides.isEmpty) {
       return Scaffold(
-        body: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTap: _openSettings,
-          child: Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.photo_library_outlined, size: 64, color: Colors.white54),
-                SizedBox(height: 16),
-                Text(
-                  AppLocalizations.of(context)!.noPhotosFound,
-                  style: TextStyle(color: Colors.white, fontSize: 20),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  AppLocalizations.of(context)!.tapCenterToOpenSettings,
-                  style: TextStyle(color: Colors.white54, fontSize: 14),
-                ),
-              ],
+        body: Focus(
+          focusNode: _focusNode,
+          autofocus: true,
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent) {
+              final key = event.logicalKey;
+              if (key == LogicalKeyboardKey.enter ||
+                  key == LogicalKeyboardKey.numpadEnter ||
+                  key == LogicalKeyboardKey.select ||
+                  key == LogicalKeyboardKey.space ||
+                  key == LogicalKeyboardKey.dpadCenter) {
+                _openSettings();
+                return KeyEventResult.handled;
+              }
+            }
+            return KeyEventResult.ignored;
+          },
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _openSettings,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.photo_library_outlined, size: 64, color: Colors.white54),
+                  SizedBox(height: 16),
+                  Text(
+                    AppLocalizations.of(context)!.noPhotosFound,
+                    style: TextStyle(color: Colors.white, fontSize: 20),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    AppLocalizations.of(context)!.tapCenterToOpenSettings,
+                    style: TextStyle(color: Colors.white54, fontSize: 14),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -738,8 +760,40 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
     }
 
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
+      body: Focus(
+        focusNode: _focusNode,
+        autofocus: true,
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent) {
+            final key = event.logicalKey;
+            if (key == LogicalKeyboardKey.arrowRight ||
+                key == LogicalKeyboardKey.dpadRight ||
+                key == LogicalKeyboardKey.arrowDown ||
+                key == LogicalKeyboardKey.dpadDown) {
+              print("Remote/Keyboard Action: Next Slide");
+              _manualNavigation(true);
+              return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.arrowLeft ||
+                       key == LogicalKeyboardKey.dpadLeft ||
+                       key == LogicalKeyboardKey.arrowUp ||
+                       key == LogicalKeyboardKey.dpadUp) {
+              print("Remote/Keyboard Action: Previous Slide");
+              _manualNavigation(false);
+              return KeyEventResult.handled;
+            } else if (key == LogicalKeyboardKey.enter ||
+                       key == LogicalKeyboardKey.numpadEnter ||
+                       key == LogicalKeyboardKey.select ||
+                       key == LogicalKeyboardKey.space ||
+                       key == LogicalKeyboardKey.dpadCenter) {
+              print("Remote/Keyboard Action: Open Settings");
+              _openSettings();
+              return KeyEventResult.handled;
+            }
+          }
+          return KeyEventResult.ignored;
+        },
+        child: Stack(
+          fit: StackFit.expand,
         children: [
           // 1. Content Layer (Custom Stack)
           ..._slides.map((slide) {
@@ -862,6 +916,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
               ),
             ),
         ],
+      ),
       ),
     );
   }

@@ -38,3 +38,21 @@ OpenPhotoFrame is an Android digital photo frame application built with Flutter.
 - Ensure that any UI updates respect layout boundaries (specifically, config tiles in the settings panel should not truncate text or wrap incorrectly).
 - Always ensure native SMB operations release transport connections and pool sockets to prevent socket leak / resource exhaustion (`0xC000009A`).
 - Keep obfuscation rules in `android/app/proguard-rules.pro` updated for any new native/Java-based packages.
+
+### 🚀 GitHub Submission Guidelines (GitHub 提交指南)
+- **沙箱限制**: Codex 运行在限制级沙箱中，`.git` 文件夹默认为只读，因此 Agent 无法在沙箱中直接执行 `git commit`、`git checkout -b` 等写操作。
+- **提交与推送步骤**:
+  1. **Staging**: Agent 可以在沙箱内运行 `git add <files>` 将修改的文件加入暂存区（Staging Area）。
+  2. **本地提交**: 由用户在宿主机终端中执行以下命令创建分支、提交并推送到 GitHub：
+     ```powershell
+     # 创建新分支
+     git checkout -b codex/remote-control-support
+     # 提交修改
+     git commit -m "Add remote control and keyboard navigation support"
+     # 推送到远程分支
+     git push -u origin codex/remote-control-support
+     ```
+  3. **清理锁文件**: 若在操作中遇到 `index.lock` 被锁定的权限报错，请在主机终端（或由 Agent 执行批准的命令）清理锁文件：
+     ```powershell
+     Remove-Item -Force "D:\\git_workspace\\android\\OpenPhotoFrame\\.git\\index.lock" -ErrorAction SilentlyContinue
+     ```

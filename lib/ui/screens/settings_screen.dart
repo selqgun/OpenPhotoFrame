@@ -2308,8 +2308,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   
   Widget _buildPositionButton(String position, String label) {
     final isSelected = _clockPosition == position;
-    return GestureDetector(
+    return InkWell(
       onTap: () => setState(() => _clockPosition = position),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         width: 32,
         height: 32,
@@ -2810,8 +2811,9 @@ class _SettingsScreenState extends State<SettingsScreen> with WidgetsBindingObse
   
   Widget _buildPhotoInfoPositionButton(String position, String label) {
     final isSelected = _photoInfoPosition == position;
-    return GestureDetector(
+    return InkWell(
       onTap: () => setState(() => _photoInfoPosition = position),
+      borderRadius: BorderRadius.circular(4),
       child: Container(
         width: 32,
         height: 32,
