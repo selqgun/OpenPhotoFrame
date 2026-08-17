@@ -725,8 +725,7 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
               if (key == LogicalKeyboardKey.enter ||
                   key == LogicalKeyboardKey.numpadEnter ||
                   key == LogicalKeyboardKey.select ||
-                  key == LogicalKeyboardKey.space ||
-                  key == LogicalKeyboardKey.dpadCenter) {
+                  key == LogicalKeyboardKey.space) {
                 _openSettings();
                 return KeyEventResult.handled;
               }
@@ -767,24 +766,19 @@ class _SlideshowScreenState extends State<SlideshowScreen> with TickerProviderSt
           if (event is KeyDownEvent) {
             final key = event.logicalKey;
             if (key == LogicalKeyboardKey.arrowRight ||
-                key == LogicalKeyboardKey.dpadRight ||
-                key == LogicalKeyboardKey.arrowDown ||
-                key == LogicalKeyboardKey.dpadDown) {
+                key == LogicalKeyboardKey.arrowDown) {
               print("Remote/Keyboard Action: Next Slide");
               _manualNavigation(true);
               return KeyEventResult.handled;
             } else if (key == LogicalKeyboardKey.arrowLeft ||
-                       key == LogicalKeyboardKey.dpadLeft ||
-                       key == LogicalKeyboardKey.arrowUp ||
-                       key == LogicalKeyboardKey.dpadUp) {
+                       key == LogicalKeyboardKey.arrowUp) {
               print("Remote/Keyboard Action: Previous Slide");
               _manualNavigation(false);
               return KeyEventResult.handled;
             } else if (key == LogicalKeyboardKey.enter ||
                        key == LogicalKeyboardKey.numpadEnter ||
                        key == LogicalKeyboardKey.select ||
-                       key == LogicalKeyboardKey.space ||
-                       key == LogicalKeyboardKey.dpadCenter) {
+                       key == LogicalKeyboardKey.space) {
               print("Remote/Keyboard Action: Open Settings");
               _openSettings();
               return KeyEventResult.handled;
