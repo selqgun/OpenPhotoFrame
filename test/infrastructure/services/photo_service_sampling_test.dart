@@ -29,6 +29,12 @@ class MockStorageProvider implements StorageProvider {
 
 class MockPlaylistStrategy implements PlaylistStrategy {
   @override
+  String get id => "mock";
+
+  @override
+  String get name => "Mock Strategy";
+
+  @override
   PhotoEntry? nextPhoto(List<PhotoEntry> photos) => null;
 }
 

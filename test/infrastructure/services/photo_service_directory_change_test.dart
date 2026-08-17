@@ -216,6 +216,31 @@ class MockConfigProvider extends ChangeNotifier implements ConfigProvider {
   String get screenOrientation => 'auto';
   @override
   set screenOrientation(String value) {}
+
+  @override
+  String get geocodingApiKey => "";
+  @override
+  set geocodingApiKey(String value) {}
+
+  @override
+  String get geocodingProvider => "nominatim";
+  @override
+  set geocodingProvider(String value) {}
+
+  @override
+  bool get showCacheStatus => true;
+  @override
+  set showCacheStatus(bool value) {}
+
+  @override
+  int get maxCacheImages => 200;
+  @override
+  set maxCacheImages(int value) {}
+
+  @override
+  int get maxCacheVideos => 10;
+  @override
+  set maxCacheVideos(int value) {}
 }
 
 class MockPlaylistStrategy implements PlaylistStrategy {
