@@ -44,3 +44,9 @@ OpenPhotoFrame is an Android digital photo frame application built with Flutter.
   1. **Staging**: `git add <files>`
   2. **Commit**: `git commit -m "清晰有意义的提交说明"`
   3. **Push**: `git push origin <branch-name>`
+
+
+### 🛠 Git Commit & Push Detailed Steps
+1. **Stage**: `git add <files>`
+2. **Commit**: `git commit -m "docs: update AGENTS.md with git workflow instructions"`
+3. **Push**: `git push origin feature/cache-status-overlay`
