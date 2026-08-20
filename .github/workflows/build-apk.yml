@@ -53,7 +53,9 @@ jobs:
         run: flutter test
 
       - name: Build Debug APK
-        run: flutter build apk --debug
+        run: |
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          flutter build apk --debug --build-number=$BUILD_NUMBER
 
       - name: Upload Debug APK artifact
         uses: actions/upload-artifact@v4
@@ -138,7 +140,9 @@ jobs:
 
       - name: Build Release APK
         # Always build the release APK
-        run: flutter build apk --release --split-per-abi
+        run: |
+          BUILD_NUMBER=$(git rev-list --count HEAD)
+          flutter build apk --release --split-per-abi --build-number=$BUILD_NUMBER
 
       - name: Rename APKs
         # Always rename

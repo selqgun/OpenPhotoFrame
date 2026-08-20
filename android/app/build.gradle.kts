@@ -11,6 +11,15 @@ import java.io.FileInputStream
 
 // Load key.properties if it exists
 val keystorePropertiesFile = rootProject.file("key.properties")
+val gitCommitCount: Int by lazy {
+    try {
+        val p = ProcessBuilder("git", "rev-list", "--count", "HEAD").start()
+        p.inputStream.bufferedReader().readText().trim().toIntOrNull() ?: 1
+    } catch (e: Exception) {
+        1
+    }
+}
+
 val keystoreProperties = Properties()
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
@@ -42,7 +51,7 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
         targetSdk = 37
-        versionCode = flutter.versionCode
+        versionCode = maxOf(flutter.versionCode ?: 1, gitCommitCount)
         versionName = flutter.versionName
     }
 
